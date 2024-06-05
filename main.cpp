@@ -2,7 +2,7 @@
 
 using namespace std;
 
-using I = long long int;
+using I = unsigned long long int;
 using P = pair<I, I>;
 using PP = pair<P, P>;
 
@@ -125,7 +125,38 @@ void compute_cut_vertices(const I& x, const I& ind, const V& arrangement, const 
 		}
 	}
 }
-void solve(const VV& graph, const V& arrangement, const V& index, const PP& parameters)
+
+// Updates mask after removing element from a set
+I remove_index(const I& mask, const I& ind)
+{
+	I all_ones = (1LL<<61) - 1;
+	I bit = 1LL<<ind;
+	assert(!(mask&bit));
+	I all_before = bit-1;
+	I all_after = all_ones ^ all_before;
+	I before = all_before & mask;
+	I after = all_after & mask; 
+	after >>= 1;
+	return (before | after);
+
+}
+
+
+// [TODO] Do a forget step before the next introduce.
+// When forget v: T[X] = T'[X] + T'[XU{v}]
+// Problem: X is a bitset. We want to add T'[X] and T'[XU{v}] to $T[X']$
+// where X' is the mask of X in the new set resulting from removing v from X
+// i.e. elements after v are shifted back by one.
+// split pattern in two halfs before and after v, shift and concatenate.
+// xor and or should yield the same answer since vs bit was zero.
+
+// Iterate over all forgotten vertices and do this process one by one
+// remove vertices from cut accordingly.
+// i.e., after each step iterate over cut and check which vertices do not survive
+// update them in the mentioned way and remove them.
+// Q: can I update a batch  together?
+// After forget all vertices I introduce the neighbors of v_i.
+void run_solver(const VV& graph, const V& arrangement, const V& index, const PP& parameters)
 {
 	I cutw = parameters.second.second;
 	I dp_size = 1LL<<cutw;
@@ -134,6 +165,10 @@ void solve(const VV& graph, const V& arrangement, const V& index, const PP& para
 	for(const auto& v : arrangement)
 	{
 		I ind = index[v];
+		I ind_par = ind & 1;
+		I last_par = 1 - ind_par;
+		V& curr_sol = sol[ind_par];
+		const V& last_sol = sol[last_par];
 		compute_cut_vertices(v, ind, arrangement, index, graph, cut, parameters);
 		I c = cut.size();
 		I n_masks = 1LL<<c;
@@ -148,12 +183,8 @@ void solve(const VV& graph, const V& arrangement, const V& index, const PP& para
 				}
 			}
 			// todo update solutions at sol[ind%2]
-			I ind_par = ind & 1;
-			I last_par = 1 - ind_par;
-			V& curr_sol = sol[ind_par];
-			const V& last_sol = sol[last_par];
 			fill(curr_sol.begin(), curr_sol.end(), INFINITY);
-
+			
 		}
 	}
 
@@ -161,7 +192,6 @@ void solve(const VV& graph, const V& arrangement, const V& index, const PP& para
 
 int main()
 {
-	//Make IO fast
 	ios_base::sync_with_stdio(0);
 
 	V arrangement;
@@ -169,6 +199,6 @@ int main()
 	VV graph;
 	PP parameters = read_input(arrangement, index, graph);
 
-	solve(graph, arrangement, index, parameters);
+	run_solver(graph, arrangement, index, parameters);
 	return 0;
 }
