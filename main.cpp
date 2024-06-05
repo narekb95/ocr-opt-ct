@@ -103,6 +103,7 @@ bool is_fixed_partition(const I& v, const PP& parameters)
 	return v < parameters.first.first;
 }
 
+// obsolete
 void compute_cut_vertices(const I& x, const I& ind, const V& arrangement, const V& index, const VV& graph, V& cut, const PP& parameters)
 {
 	cut.clear();
@@ -133,7 +134,6 @@ I remove_index(const I& mask, const I& ind)
 {
 	I all_ones = (1LL<<61) - 1;
 	I bit = 1LL<<ind;
-	assert(!(mask&bit));
 	I all_before = bit-1;
 	I all_after = all_ones ^ all_before;
 	I before = all_before & mask;
@@ -155,35 +155,89 @@ I remove_index(const I& mask, const I& ind)
 // update them in the mentioned way and remove them.
 // Q: can I update a batch  together?
 // After forget all vertices I introduce the neighbors of v_i.
+
+// Q: make sure that vi is handled well (not forgotten and reintroduced)
 void run_solver(const VV& graph, const V& arrangement, const V& index, const VP& neighbor_range, const PP& parameters)
 {
 	I cutw = parameters.second.second;
 	I dp_size = (1LL<<cutw);
 	V sol[2] = {V(dp_size), V(dp_size)};
-	V cut;
-	bitset<15000> cut_mask;
+	V cut(graph.size());
+	I cut_size = 0;
+	bitset<15000> cut_mask; // this mask is over all vertices but later masks are over cut vertices only
+
+	//swap after you get a new solution
+	I curr_par = 0;
+	I other_par = 1;
+
 	for(const auto& v : arrangement)
 	{
 		I ind = index[v];
-		I ind_par = ind & 1;
-		I last_par = 1 - ind_par;
-		V& curr_sol = sol[ind_par];
-		const V& last_sol = sol[last_par];
-		compute_cut_vertices(v, ind, arrangement, index, graph, cut, parameters);
-		I c = cut.size();
-		I n_masks = 1LL<<c;
-		for(I b_msk = 0; b_msk < n_masks; b_msk++)
+
+		// Forget vertices with no right neighbors
+		for(I i = 0; i < cut_size; i++)
+		{
+			const auto& w = cut[i];
+			if(index[w] > ind || neighbor_range[w].second > ind)
+			{
+				continue;
+			}
+
+			// Forget w
+			V& curr_sol = sol[curr_par];
+			const V& last_sol = sol[other_par];
+			curr_sol.assign(1LL<<(cut_size-1), INF);
+			for(I mask = 0; mask < (1LL<<cut_size); mask++)
+			{
+				I new_mask = remove_index(mask, i);
+				assert(new_mask < curr_sol.size());
+				curr_sol[new_mask] = min(curr_sol[new_mask], last_sol[mask]);
+			}
+			swap(curr_par, other_par);
+			// remove w from cut
+			cut_mask[w] = 0;
+			for(I j = i; j < cut_size -1; j++)
+			{
+				cut[j] = cut[j+1];
+			}
+			cut.pop_back();
+			cut_size--;			
+		}
+
+		// Introduce v or its right neighbors if it has right neighbors
+		if(neighbor_range[v].second > ind)
+		{
+			if(is_fixed_partition(v, parameters))
+			{
+				for(const auto& w : graph[v])
+				{
+					if(index[w] > ind && !cut_mask[w])
+					{
+						cut[cut_size++] = w;
+						cut_mask[w] = 1;
+					}
+				}
+			} 
+			else
+			{
+				if(!cut_mask[v])
+				{
+					cut[cut_size++] = v;
+					cut_mask[v] = 1;
+				}
+			}
+		}
+		for(I mask = 0; mask < (1LL<<cut_size); mask++)
 		{
 			V vertices;
-			for(I i = 0; i < c; i++)
+			for(I i = 0; i < cut_size; i++)
 			{
-				if((1LL<<i)&b_msk)
+				if((1LL<<i)&mask)
 				{
 					vertices.push_back(cut[i]);
 				}
 			}
-			// todo update solutions at sol[ind%2]
-			fill(curr_sol.begin(), curr_sol.end(), INF);
+			// [TODO] update solutions at sol[ind%2]
 			
 		}
 	}
