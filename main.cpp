@@ -205,6 +205,9 @@ void run_solver(const VV& graph, const V& arrangement, const V& index, const VP&
 		}
 
 		// Introduce v or its right neighbors if it has right neighbors
+		// Note that either v or its neighbors are fixed partition vertices
+		// so only one of them is in cut
+		// anything introduced is suited anyway so just permute added vertices and append them.
 		if(neighbor_range[v].second > ind)
 		{
 			if(is_fixed_partition(v, parameters))
@@ -227,6 +230,7 @@ void run_solver(const VV& graph, const V& arrangement, const V& index, const VP&
 				}
 			}
 		}
+		
 		for(I mask = 0; mask < (1LL<<cut_size); mask++)
 		{
 			V vertices;
@@ -237,7 +241,9 @@ void run_solver(const VV& graph, const V& arrangement, const V& index, const VP&
 					vertices.push_back(cut[i]);
 				}
 			}
-			// [TODO] update solutions at sol[ind%2]
+			
+			I S_msk = 0, V_msk = 0, W_msk = 0;
+			V S, V, W;
 			
 		}
 	}
