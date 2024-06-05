@@ -14,6 +14,8 @@ using VS = vector<string>;
 using VV = vector<V>;
 using VVP = vector<VP>;
 
+constexpr I INF = (1LL<<61);
+
 // Prints a vector
 template<class T>
 ostream& operator <<(ostream& out, const vector<T>& a){
@@ -138,9 +140,7 @@ I remove_index(const I& mask, const I& ind)
 	I after = all_after & mask; 
 	after >>= 1;
 	return (before | after);
-
 }
-
 
 // [TODO] Do a forget step before the next introduce.
 // When forget v: T[X] = T'[X] + T'[XU{v}]
@@ -149,19 +149,19 @@ I remove_index(const I& mask, const I& ind)
 // i.e. elements after v are shifted back by one.
 // split pattern in two halfs before and after v, shift and concatenate.
 // xor and or should yield the same answer since vs bit was zero.
-
 // Iterate over all forgotten vertices and do this process one by one
-// remove vertices from cut accordingly.
+// - Remove vertices from cut accordingly.
 // i.e., after each step iterate over cut and check which vertices do not survive
 // update them in the mentioned way and remove them.
 // Q: can I update a batch  together?
 // After forget all vertices I introduce the neighbors of v_i.
-void run_solver(const VV& graph, const V& arrangement, const V& index, const PP& parameters)
+void run_solver(const VV& graph, const V& arrangement, const V& index, const VP& neighbor_range, const PP& parameters)
 {
 	I cutw = parameters.second.second;
-	I dp_size = 1LL<<cutw;
+	I dp_size = (1LL<<cutw);
 	V sol[2] = {V(dp_size), V(dp_size)};
 	V cut;
+	bitset<15000> cut_mask;
 	for(const auto& v : arrangement)
 	{
 		I ind = index[v];
@@ -183,7 +183,7 @@ void run_solver(const VV& graph, const V& arrangement, const V& index, const PP&
 				}
 			}
 			// todo update solutions at sol[ind%2]
-			fill(curr_sol.begin(), curr_sol.end(), INFINITY);
+			fill(curr_sol.begin(), curr_sol.end(), INF);
 			
 		}
 	}
@@ -199,6 +199,14 @@ int main()
 	VV graph;
 	PP parameters = read_input(arrangement, index, graph);
 
-	run_solver(graph, arrangement, index, parameters);
+	//first and last indices of neighbors in arrangement
+	VP neighbor_range(graph.size());
+	transform(graph.begin(), graph.end(), neighbor_range.begin(),
+	[&](const V& adj){
+		return accumulate(adj.begin(), adj.end(), P(index[adj[0]], index[adj[0]]), [&](const P& rng, const I& y){
+			return P(min(rng.first, index[y]), max(rng.second, index[y]));
+		});
+	});
+	run_solver(graph, arrangement, index, neighbor_range, parameters);
 	return 0;
 }
