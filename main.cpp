@@ -243,7 +243,27 @@ I best_permutation(const V& vertices, const VV& graph, const V& index)
 }
 
 
-// [TODO] Do a forget step before the next introduce.
+void forget_vertex(const I& w, const I& cut_ind, V& cut, V& cut_mask, I& cut_size, const VV& graph, V& curr_sol, const V& last_sol)
+{
+	I n_masks = count_masks(cut_size);
+	curr_sol.assign(count_masks(cut_size - 1), INF); // new mask size
+	for(I mask = 0; mask < n_masks; mask++)
+	{
+		I new_mask = remove_index(mask, cut_ind);
+		assert(new_mask < curr_sol.size());
+		curr_sol[new_mask] = min(curr_sol[new_mask], last_sol[mask]);
+	}
+	// remove w from cut
+	cut_mask[w] = 0;
+	for(I j = cut_ind; j < cut_size -1; j++)
+	{
+		cut[j] = cut[j+1];
+	}
+	cut.pop_back();
+	cut_size--;		
+}
+
+// Forget step before the next introduce.
 // When forget v: T[X] = T'[X] + T'[XU{v}]
 // Problem: X is a bitset. We want to add T'[X] and T'[XU{v}] to $T[X']$
 // where X' is the mask of X in the new set resulting from removing v from X
@@ -260,12 +280,13 @@ I best_permutation(const V& vertices, const VV& graph, const V& index)
 // Q: make sure that vi is handled well (not forgotten and reintroduced)
 void run_solver(const VV& graph, const V& arrangement, const V& index, const VP& neighbor_range, const PP& parameters)
 {
+	I n = graph.size();
 	I cutw = parameters.second.second;
 	I dp_size = (1LL<<cutw);
 	V sol[2] = {V(dp_size), V(dp_size)};
 	V cut(graph.size());
 	I cut_size = 0;
-	bitset<15000> cut_mask; // this mask is over all vertices but later masks are over cut vertices only
+	V cut_mask(n); // this mask is over all vertices but later masks are over cut vertices only
 
 	//swap after you get a new solution
 	I curr_par = 0;
@@ -284,27 +305,8 @@ void run_solver(const VV& graph, const V& arrangement, const V& index, const VP&
 				i++;
 				continue;
 			}
-
-			// Forget w
-			V& curr_sol = sol[curr_par];
-			const V& last_sol = sol[other_par];
-			I n_masks = count_masks(cut_size);
-			curr_sol.assign(n_masks, INF);
-			for(I mask = 0; mask < n_masks; mask++)
-			{
-				I new_mask = remove_index(mask, i);
-				assert(new_mask < curr_sol.size());
-				curr_sol[new_mask] = min(curr_sol[new_mask], last_sol[mask]);
-			}
+			forget_vertex(w, i, cut, cut_mask, cut_size, graph, sol[curr_par], sol[other_par]);	
 			swap(curr_par, other_par);
-			// remove w from cut
-			cut_mask[w] = 0;
-			for(I j = i; j < cut_size -1; j++)
-			{
-				cut[j] = cut[j+1];
-			}
-			cut.pop_back();
-			cut_size--;			
 		}
 
 		// Introduce v or its right neighbors if it has right neighbors
@@ -442,6 +444,7 @@ void compute_index_and_sort(const V& arrangement, V& index, VV& graph, VP& neigh
 		return P(index[v.front()], index[v.back()]);
 	});
 }
+
 int main()
 {
 	ios_base::sync_with_stdio(0);
