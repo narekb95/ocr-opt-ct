@@ -242,7 +242,9 @@ I best_permutation(const V& vertices, const VV& graph, const V& index)
 	return dp[m];
 }
 
-
+// Forget vertex and update cut and cut_mask.
+// Elements after w in cut are shited to the left.
+// Add min of X and XU{V} to T[X'] where X' is the mask corresp to X after removing w.
 void forget_vertex(const I& w, const I& cut_ind, V& cut, V& cut_mask, I& cut_size, const VV& graph, V& curr_sol, const V& last_sol)
 {
 	I n_masks = count_masks(cut_size);
@@ -263,21 +265,8 @@ void forget_vertex(const I& w, const I& cut_ind, V& cut, V& cut_mask, I& cut_siz
 	cut_size--;		
 }
 
-// Forget step before the next introduce.
-// When forget v: T[X] = T'[X] + T'[XU{v}]
-// Problem: X is a bitset. We want to add T'[X] and T'[XU{v}] to $T[X']$
-// where X' is the mask of X in the new set resulting from removing v from X
-// i.e. elements after v are shifted back by one.
-// split pattern in two halfs before and after v, shift and concatenate.
-// xor and or should yield the same answer since vs bit was zero.
-// Iterate over all forgotten vertices and do this process one by one
-// - Remove vertices from cut accordingly.
-// i.e., after each step iterate over cut and check which vertices do not survive
-// update them in the mentioned way and remove them.
-// Q: can I update a batch  together?
-// After forget all vertices I introduce the neighbors of v_i.
-
-// Q: make sure that vi is handled well (not forgotten and reintroduced)
+// Vertices are only forgotten when no right neighbors
+// Implication: No vertex is forgotten and reintroduced.
 void run_solver(const VV& graph, const V& arrangement, const V& index, const VP& neighbor_range, const PP& parameters)
 {
 	I n = graph.size();
