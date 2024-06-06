@@ -144,7 +144,6 @@ P count_crossings(I u, I v, const VV& graph, const V& index)
 	const V& a2 = graph[v];
 	I n1 = a1.size();
 	I n2 = a2.size();
-	I ans = 0;
 	I common = 0;
 	I cuv = 0;
 	I cvu = 0;
@@ -205,14 +204,14 @@ I best_permutation(const V& vertices, const VV& graph, const V& index)
 		submasks.push_back(s);
 	}
 	reverse(submasks.begin(), submasks.end());
-	for(auto mask : submasks){
+	for(I mask : submasks){
 		if(__builtin_popcountll(mask) == 1)
 		{
 			dp[mask] = 0;
 			continue;
 		}
 		dp[mask] = INF;
-		for(auto i = 0; i < n; i++)
+		for(I i = 0; i < n; i++)
 		{
 			I bit = (1LL<<i);
 			I u = vertices[i];
@@ -222,7 +221,7 @@ I best_permutation(const V& vertices, const VV& graph, const V& index)
 			}
 			I new_mask = mask ^ bit;
 			I cost = dp[new_mask];
-			for(auto j = 0; j < n; j++)
+			for(I j = 0; j < n; j++)
 			{
 				if(i == j)
 				{
@@ -346,9 +345,7 @@ void run_solver(const VV& graph, const V& arrangement, const V& index, const VP&
 		const V& last_sol = sol[other_par];
 		curr_sol.assign(count_masks(cut_size), INF);
 		I n_masks = count_masks(cut_size);
-		I all_bits = n_masks - 1;
 		I old_bits = count_masks(prev_size) - 1;
-		I new_bits = all_bits ^ old_bits;
 		for(I mask = 0; mask < n_masks; mask++)
 		{
 			I old_mask = mask & old_bits;
@@ -364,12 +361,8 @@ void run_solver(const VV& graph, const V& arrangement, const V& index, const VP&
 		}
 		swap(curr_par, other_par);
 	}
-#ifdef __DEBUG
-	cout << cut_size << endl;
-	cout << cut << endl;
-#endif
 	assert(cut_size == 0);
-	I ans = sol[other_par][0];
+	I ans = sol[other_par][0]; // empty mask
 	cout << ans << endl;
 }
 
