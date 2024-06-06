@@ -36,7 +36,7 @@ void split_line(const string& str, VS& line)
 {
 	I s = str.size();
 	line.clear();
-	I i = 0, j =0 ;
+	I i = 0, j =0;
 	do{
 		j++;
 		if(j == s || str[j] == ' ')
@@ -51,7 +51,7 @@ void split_line(const string& str, VS& line)
 // Arrangement: is the linear arrangement as given in input
 // Index: is the index of each vertex in the linear arrangement
 // Graph: adj lists
-PP read_input(V& arrangement, V&index, VV& graph)
+PP read_input(V& arrangement, VV& graph)
 {
 	I n1, n2, m, ctw;
 	string s;
@@ -75,7 +75,7 @@ PP read_input(V& arrangement, V&index, VV& graph)
 			ctw = stoi(line[5]);
 			graph.assign(n1+n2, V());
 			arrangement.resize(n1 + n2);
-			index.resize(n1+n2);
+			// index.resize(n1+n2);
 			continue;
 		}
 		assert(first_line);
@@ -83,7 +83,7 @@ PP read_input(V& arrangement, V&index, VV& graph)
 		{
 			assert(line.size() == 1);
 			arrangement[arrg_itr] = stoi(line[0]) - 1;
-			index[arrangement[arrg_itr]] = arrg_itr;
+			// index[arrangement[arrg_itr]] = arrg_itr;
 			arrg_itr++;
 			continue;
 		}
@@ -154,8 +154,8 @@ P count_crossings(I u, I v, const VV& graph, const V& index)
 		{
 			j++;
 		}		
-		cuv = j;
-		cvu = n2 - j; // assume first that current is larger
+		cuv += j;
+		cvu += (n2 - j); // assume first that current is larger
 		if(j < n2 && index[a2[j]] == index[a1[i]]) //subtract one if equal
 		{
 			common++;
@@ -277,11 +277,12 @@ void run_solver(const VV& graph, const V& arrangement, const V& index, const VP&
 		I ind = index[v];
 
 		// Forget vertices with no right neighbors
-		for(I i = 0; i < cut_size; i++)
+		for(I i = 0; i < cut_size;)
 		{
 			const auto& w = cut[i];
 			if(index[w] > ind || neighbor_range[w].second > ind)
 			{
+				i++;
 				continue;
 			}
 
@@ -363,29 +364,120 @@ void run_solver(const VV& graph, const V& arrangement, const V& index, const VP&
 		}
 		swap(curr_par, other_par);
 	}
+#ifdef __DEBUG
+	cout << cut_size << endl;
+	cout << cut << endl;
+#endif
 	assert(cut_size == 0);
 	I ans = sol[other_par][0];
 	cout << ans << endl;
 }
 
-int main()
+void remove_isolated_vertices(VV& graph, V& arrangement, V& old_ids, V& solution, PP& parameters)
 {
-	ios_base::sync_with_stdio(0);
-	V arrangement;
-	V index;
-	VV graph;
-	PP parameters = read_input(arrangement, index, graph);
-	// sort neighbors in arrangement order
+	I& n1 = parameters.first.first;
+	I& n2 = parameters.first.second;
+	I n = n1 + n2;
+	V removed(n, 0);
+	V new_ids(n);
+	old_ids.clear();
+
+	VV newgraph;
+	for(uint i = 0; i < n; i++)
+	{
+		if(graph[i].empty())
+		{
+			solution.push_back(i);
+			removed[i] = 1;
+		}
+		else
+		{
+			new_ids[i] = newgraph.size();
+			old_ids.push_back(i);
+			newgraph.push_back(move(graph[i]));
+		}
+	}
+	graph = move(newgraph);
+
+	// update data
+	for(auto &v : graph)
+	{
+		for(auto &x : v)
+		{
+			x = new_ids[x];
+		}
+	}
+
+	V new_arrangement;
+	for(auto x : arrangement)
+	{
+		if(!removed[x])
+		{
+			new_arrangement.push_back(new_ids[x]);
+		}
+	}
+	arrangement = move(new_arrangement);
+	if(n1 > 0)
+	{
+		I last_fixed = n1 - 1;
+		while(removed[last_fixed])
+		{
+			last_fixed--;
+		}
+		n1 = last_fixed + 1;
+	}
+	n = graph.size();
+	n2 = n - n1;
+}
+
+void compute_index_and_sort(const V& arrangement, V& index, VV& graph, VP& neighbor_range)
+{
+	I n = arrangement.size();
+	index.resize(n);
+	for(I i = 0; i < n; i++)
+	{
+		index[arrangement[i]] = i;
+	}
 	for(auto& v : graph)
 	{
 		sort(v.begin(), v.end(), [&](const I& x, const I& y){
 			return index[x] < index[y];
 		});
 	}
-	//first and last indices of neighbors in arrangement
-	VP neighbor_range(graph.size());
+	neighbor_range.resize(n);
 	transform(graph.begin(), graph.end(), neighbor_range.begin(), [&](const V& v){
-		return P(index[v.front()], index[v.back()]);});
+		return P(index[v.front()], index[v.back()]);
+	});
+}
+int main()
+{
+	ios_base::sync_with_stdio(0);
+	V arrangement;
+	VV graph;
+	PP parameters = read_input(arrangement, graph);
+	
+	// Remove isolated vertices
+	V solution;
+	V old_ids;
+	remove_isolated_vertices(graph, arrangement, old_ids, solution, parameters);
+
+	V index;
+	VP neighbor_range;
+	compute_index_and_sort(arrangement, index, graph, neighbor_range);
+
+#ifdef __DEBUG
+	cout << "Solution: " << solution << endl;
+	cout << "Old ids: " << old_ids << endl;
+	cout << "Graph: " << endl;
+	for(const auto& v : graph)
+	{
+		cout << v << endl;
+	}
+	cout << endl;
+	cout << "Arrangement: " << arrangement << endl;
+	cout << "Index: " << index << endl;
+	cout << "Neighbor range: " << neighbor_range << endl;
+#endif
 	run_solver(graph, arrangement, index, neighbor_range, parameters);
 	return 0;
 }
