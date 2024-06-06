@@ -32,6 +32,13 @@ ostream& operator<<(ostream& out, const pair<S,T>& p)
 	return out;
 }
 
+void d_assert(bool b)
+{
+#ifdef __DEBUG
+	assert(b);
+#endif
+}
+
 void split_line(const string& str, VS& line)
 {
 	I s = str.size();
@@ -265,6 +272,7 @@ void forget_vertex(const I& w, const I& cut_ind, V& cut, V& cut_mask, I& cut_siz
 	cut_size--;		
 }
 
+// Cut are non-fixed endpoints of cut edges 
 // Vertices are only forgotten when no right neighbors
 // Implication: No vertex is forgotten and reintroduced.
 void run_solver(const VV& graph, const V& arrangement, const V& index, const VP& neighbor_range, const PP& parameters)
@@ -281,14 +289,16 @@ void run_solver(const VV& graph, const V& arrangement, const V& index, const VP&
 	I curr_par = 0;
 	I other_par = 1;
 
-	for(const auto& v : arrangement)
+	
+	for(I ind = 0; ind < n; ind++) // arrangement index
 	{
-		I ind = index[v];
+		I v = arrangement[ind];
+		d_assert(ind == index[v]);
 
 		// Forget vertices with no right neighbors
-		for(I i = 0; i < cut_size;)
+		for(I i = 0; i < cut_size;) // index of vertices in cut
 		{
-			const auto& w = cut[i];
+			I w = cut[i];
 			if(index[w] > ind || neighbor_range[w].second > ind)
 			{
 				i++;
@@ -299,9 +309,8 @@ void run_solver(const VV& graph, const V& arrangement, const V& index, const VP&
 		}
 
 		// Introduce v or its right neighbors if it has right neighbors
-		// Note that either v or its neighbors are fixed partition vertices
-		// so only one of them is in cut
-		// anything introduced is suited anyway so just permute added vertices and append them.
+		// Either v or all its neighbors are fixed partition
+		// Anything introduced is suited anyway so just permute added vertices and append them.
 		I prev_size = cut_size;
 		if(neighbor_range[v].second > ind)
 		{
