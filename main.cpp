@@ -143,34 +143,56 @@ I remove_index(const I& mask, const I& ind)
 }
 
 
-I count_crossings(I u, I v, const VV& graph)
+// Returns cuv and cvu.
+// cvu is number of pairs i, j in permanent such that i < j, i neighbor of u and j neighbor of v.
+// i.e. c(u,v) is the number of crossings of (v, u)
+P count_crossings(I u, I v, const VV& graph, const V& index)
 {
 	const V& a1 = graph[u];
 	const V& a2 = graph[v];
 	I n1 = a1.size();
 	I n2 = a2.size();
+	I ans = 0;
+	I common = 0;
+	I cuv = 0;
+	I cvu = 0;
 	for(I i = 0, j = 0; i < n1; i++)
 	{
-		
+		while(j < n2 && index[a2[j]] < index[a1[i]])
+		{
+			j++;
+		}		
+		cuv = j;
+		cvu = n2 - j; // assume first that current is larger
+		if(j < n2 && index[a2[j]] == index[a1[i]]) //subtract one if equal
+		{
+			common++;
+			cvu--;
+		}
 	}
+	assert(cuv + cvu + common == n1 * n2);
+	return P(cuv, cvu);
 }
 // Actually new vertices do not have edges with forgotten edges, so only crossings introduced are between old mask and new mask
 // Build the function C (count crossings between a pair) dynamically, because for many pairs will never be computed
-I crossings_with_mask(const V& cut, I new_index, const VV& graph)
+I crossings_with_mask(const V& cut, I sep_index, const VV& graph, const V& index)
 {
 	I n = cut.size();
-	I i = 0, j = new_index;
+	I i = 0, j = sep_index;
 	static map<P,I> crossings;
 	map<P,I>::iterator it;
-	for(i = 0 ; i < new_index; i++)
+	for(i = 0 ; i < sep_index; i++)
 	{
-		for(j = new_index; j < n; j++)
+		for(j = sep_index; j < n; j++)
 		{
 			I u = cut[i];
 			I v = cut[j];
 			if((it = crossings.find({u,v})) == crossings.end())
 			{
-				crossings[{u,v}] = count_crossings(u,v, graph);
+				P c = count_crossings(u,v, graph, index);
+				// swap left and right since c is defined as "well ordered paris".
+				crossings[{v, u}] = c.first;
+				crossings[{u, v}] = c.second;
 			}
 			return crossings[{u,v}];
 		}
@@ -285,10 +307,7 @@ void run_solver(const VV& graph, const V& arrangement, const V& index, const VP&
 		for(I mask = 0; mask < (1LL<<cut_size); mask++)
 		{
 			I old_mask = mask & old_bits;
-			curr_sol[mask] = last_sol[old_mask] + 
-			I S_msk = 0, V_msk = 0, W_msk = 0;
-			V S, V, W;
-			
+			curr_sol[mask] = last_sol[old_mask] + crossings_with_mask(cut, prev_size, graph, index);
 		}
 		swap(curr_par, other_par);
 	}
