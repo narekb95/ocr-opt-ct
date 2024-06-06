@@ -98,35 +98,28 @@ PP read_input(V& arrangement, V&index, VV& graph)
 }
 
 
+
+ void err(const string& err)
+ {
+#ifdef __DEBUG
+ 	cout << "Error " << err << endl;
+	exit(-1);
+#else
+	while(true);
+#endif
+ }
+ I count_masks(I size)
+ {
+	if(size > 64)
+	{
+		err("Too many vertices in cut");
+	}
+	return 1LL<<size;
+ }
+
 bool is_fixed_partition(const I& v, const PP& parameters)
 {
 	return v < parameters.first.first;
-}
-
-// obsolete
-void compute_cut_vertices(const I& x, const I& ind, const V& arrangement, const V& index, const VV& graph, V& cut, const PP& parameters)
-{
-	cut.clear();
-	for(I i = 0; i <= ind; i++)
-	{
-		I v = arrangement[i];
-		bool v_in_cut  = 0;
-		for(auto w : graph[v])
-		{
-			if(index[w] > ind)
-			{
-				v_in_cut = 1;
-				if(!is_fixed_partition(w, parameters))
-				{
-					cut.push_back(w);
-				}
-			}
-		}
-		if(v_in_cut && !is_fixed_partition(v, parameters))
-		{
-			cut.push_back(v);
-		}
-	}
 }
 
 // Updates mask after removing element from a set
@@ -366,24 +359,6 @@ void run_solver(const VV& graph, const V& arrangement, const V& index, const VP&
 
 }
 
- void err(const string& err)
- {
-#ifdef __DEBUG
- 	cout << "Error " << err << endl;
-	exit(-1);
-#else
-	while(true);
-#endif
- }
- I count_masks(I size)
- {
-	if(size > 64)
-	{
-		err("Too many vertices in cut");
-	}
-	return 1LL<<size;
- }
-
 int main()
 {
 	ios_base::sync_with_stdio(0);
@@ -400,7 +375,7 @@ int main()
 	}
 	//first and last indices of neighbors in arrangement
 	VP neighbor_range(graph.size());
-	transform(graph.begin(), graph.end(), neighbor_range.begin(), [](const V& v){
+	transform(graph.begin(), graph.end(), neighbor_range.begin(), [&](const V& v){
 		return P(index[v.front()], index[v.back()]);});
 	run_solver(graph, arrangement, index, neighbor_range, parameters);
 	return 0;
