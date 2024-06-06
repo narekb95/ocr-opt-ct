@@ -162,6 +162,7 @@ P count_crossings(I u, I v, const VV& graph, const V& index)
 			cvu--;
 		}
 	}
+	cout << "u: " << u + 1 << " v: " << v + 1 << " cuv: " << cuv << " cvu: " << cvu << " common: " << common << endl;
 	assert(cuv + cvu + common == n1 * n2);
 	return P(cuv, cvu);
 }
@@ -287,8 +288,9 @@ void run_solver(const VV& graph, const V& arrangement, const V& index, const VP&
 			// Forget w
 			V& curr_sol = sol[curr_par];
 			const V& last_sol = sol[other_par];
-			curr_sol.assign(1LL<<(cut_size-1), INF);
-			for(I mask = 0; mask < (1LL<<cut_size); mask++)
+			I n_masks = count_masks(cut_size);
+			curr_sol.assign(n_masks, INF);
+			for(I mask = 0; mask < n_masks; mask++)
 			{
 				I new_mask = remove_index(mask, i);
 				assert(new_mask < curr_sol.size());
@@ -310,7 +312,6 @@ void run_solver(const VV& graph, const V& arrangement, const V& index, const VP&
 		// so only one of them is in cut
 		// anything introduced is suited anyway so just permute added vertices and append them.
 		I prev_size = cut_size;
-		V added_vertices;
 		if(neighbor_range[v].second > ind)
 		{
 			if(is_fixed_partition(v, parameters))
@@ -319,7 +320,6 @@ void run_solver(const VV& graph, const V& arrangement, const V& index, const VP&
 				{
 					if(index[w] > ind && !cut_mask[w])
 					{
-						added_vertices.push_back(w);
 						cut[cut_size++] = w;
 						cut_mask[w] = 1;
 					}
@@ -329,7 +329,6 @@ void run_solver(const VV& graph, const V& arrangement, const V& index, const VP&
 			{
 				if(!cut_mask[v])
 				{
-					added_vertices.push_back(v);
 					cut[cut_size++] = v;
 					cut_mask[v] = 1;
 				}
@@ -345,17 +344,28 @@ void run_solver(const VV& graph, const V& arrangement, const V& index, const VP&
 		V& curr_sol = sol[curr_par];
 		const V& last_sol = sol[other_par];
 		curr_sol.assign(count_masks(cut_size), INF);
-		I all_bits = count_masks(cut_size) - 1;
+		I n_masks = count_masks(cut_size);
+		I all_bits = n_masks - 1;
 		I old_bits = count_masks(prev_size) - 1;
-		I new_bits = all_bits ^ old_bits;		
-		for(I mask = 0; mask < (1LL<<cut_size); mask++)
+		I new_bits = all_bits ^ old_bits;
+		for(I mask = 0; mask < n_masks; mask++)
 		{
 			I old_mask = mask & old_bits;
+			V added_vertices;
+			for(I j = prev_size; j < cut_size; j++)
+			{
+				if(mask & (1LL<<j))
+				{
+					added_vertices.push_back(cut[j]);
+				}
+			}
 			curr_sol[mask] = last_sol[old_mask] + crossings_with_mask(cut, prev_size, graph, index) + best_permutation(added_vertices, graph, index);
 		}
 		swap(curr_par, other_par);
 	}
-
+	assert(cut_size == 0);
+	I ans = sol[other_par][0];
+	cout << ans << endl;
 }
 
 int main()
