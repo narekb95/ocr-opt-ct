@@ -14,7 +14,7 @@ using VS = vector<string>;
 using VV = vector<V>;
 using VVP = vector<VP>;
 
-constexpr I INF = (1LL<<61);
+constexpr I INF = I(-1);
 
 // Prints a vector
 template<class T>
@@ -142,6 +142,43 @@ I remove_index(const I& mask, const I& ind)
 	return (before | after);
 }
 
+
+I count_crossings(I u, I v, const VV& graph)
+{
+	const V& a1 = graph[u];
+	const V& a2 = graph[v];
+	I n1 = a1.size();
+	I n2 = a2.size();
+	for(I i = 0, j = 0; i < n1; i++)
+	{
+		
+	}
+}
+// Actually new vertices do not have edges with forgotten edges, so only crossings introduced are between old mask and new mask
+// Build the function C (count crossings between a pair) dynamically, because for many pairs will never be computed
+I crossings_with_mask(const V& cut, I new_index, const VV& graph)
+{
+	I n = cut.size();
+	I i = 0, j = new_index;
+	static map<P,I> crossings;
+	map<P,I>::iterator it;
+	for(i = 0 ; i < new_index; i++)
+	{
+		for(j = new_index; j < n; j++)
+		{
+			I u = cut[i];
+			I v = cut[j];
+			if((it = crossings.find({u,v})) == crossings.end())
+			{
+				crossings[{u,v}] = count_crossings(u,v, graph);
+			}
+			return crossings[{u,v}];
+		}
+	}
+	return 0;
+}
+
+
 // [TODO] Do a forget step before the next introduce.
 // When forget v: T[X] = T'[X] + T'[XU{v}]
 // Problem: X is a bitset. We want to add T'[X] and T'[XU{v}] to $T[X']$
@@ -241,14 +278,14 @@ void run_solver(const VV& graph, const V& arrangement, const V& index, const VP&
 		
 		V& curr_sol = sol[curr_par];
 		const V& last_sol = sol[other_par];
-		curr_sol.assign(1LL<<(cut_size-1), INF);
+		curr_sol.assign(count_masks(cut_size), INF);
 		I all_bits = (1LL<<cut_size) - 1;
 		I old_bits = (1LL<<prev_size) - 1;
 		I new_bits = all_bits ^ old_bits;		
 		for(I mask = 0; mask < (1LL<<cut_size); mask++)
 		{
 			I old_mask = mask & old_bits;
-			
+			curr_sol[mask] = last_sol[old_mask] + 
 			I S_msk = 0, V_msk = 0, W_msk = 0;
 			V S, V, W;
 			
@@ -267,6 +304,14 @@ void run_solver(const VV& graph, const V& arrangement, const V& index, const VP&
 	while(true);
 #endif
  }
+ I count_masks(I size)
+ {
+	if(size > 64)
+	{
+		err("Too many vertices in cut");
+	}
+	return 1LL<<size;
+ }
 
 int main()
 {
@@ -275,15 +320,17 @@ int main()
 	V index;
 	VV graph;
 	PP parameters = read_input(arrangement, index, graph);
-
+	// sort neighbors in arrangement order
+	for(auto& v : graph)
+	{
+		sort(v.begin(), v.end(), [&](const I& x, const I& y){
+			return index[x] < index[y];
+		});
+	}
 	//first and last indices of neighbors in arrangement
 	VP neighbor_range(graph.size());
-	transform(graph.begin(), graph.end(), neighbor_range.begin(),
-	[&](const V& adj){
-		return accumulate(adj.begin(), adj.end(), P(index[adj[0]], index[adj[0]]), [&](const P& rng, const I& y){
-			return P(min(rng.first, index[y]), max(rng.second, index[y]));
-		});
-	});
+	transform(graph.begin(), graph.end(), neighbor_range.begin(), [](const V& v){
+		return P(index[v.front()], index[v.back()]);});
 	run_solver(graph, arrangement, index, neighbor_range, parameters);
 	return 0;
 }
