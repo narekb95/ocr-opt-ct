@@ -208,6 +208,7 @@ void run_solver(const VV& graph, const V& arrangement, const V& index, const VP&
 		// Note that either v or its neighbors are fixed partition vertices
 		// so only one of them is in cut
 		// anything introduced is suited anyway so just permute added vertices and append them.
+		I prev_size = cut_size;
 		if(neighbor_range[v].second > ind)
 		{
 			if(is_fixed_partition(v, parameters))
@@ -230,30 +231,46 @@ void run_solver(const VV& graph, const V& arrangement, const V& index, const VP&
 				}
 			}
 		}
+		if(cut_size == prev_size)
+		{
+			continue;
+		}
+		// Update the DP table
+		// For each partition of S, the new vertices of S come after old.
+		// If some old vertices come after these, they will not be in partition.
 		
+		V& curr_sol = sol[curr_par];
+		const V& last_sol = sol[other_par];
+		curr_sol.assign(1LL<<(cut_size-1), INF);
+		I all_bits = (1LL<<cut_size) - 1;
+		I old_bits = (1LL<<prev_size) - 1;
+		I new_bits = all_bits ^ old_bits;		
 		for(I mask = 0; mask < (1LL<<cut_size); mask++)
 		{
-			V vertices;
-			for(I i = 0; i < cut_size; i++)
-			{
-				if((1LL<<i)&mask)
-				{
-					vertices.push_back(cut[i]);
-				}
-			}
+			I old_mask = mask & old_bits;
 			
 			I S_msk = 0, V_msk = 0, W_msk = 0;
 			V S, V, W;
 			
 		}
+		swap(curr_par, other_par);
 	}
 
 }
 
+ void err(const string& err)
+ {
+#ifdef __DEBUG
+ 	cout << "Error " << err << endl;
+	exit(-1);
+#else
+	while(true);
+#endif
+ }
+
 int main()
 {
 	ios_base::sync_with_stdio(0);
-
 	V arrangement;
 	V index;
 	VV graph;
