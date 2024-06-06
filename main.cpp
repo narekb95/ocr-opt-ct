@@ -468,6 +468,7 @@ int main()
 #ifdef __DEBUG
 	cout << "Solution: " << solution << endl;
 	cout << "Old ids: " << old_ids << endl;
+	cout << "n1: " << parameters.first.first << " n2: " << parameters.first.second << endl;
 	cout << "Graph: " << endl;
 	for(const auto& v : graph)
 	{
