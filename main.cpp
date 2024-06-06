@@ -200,6 +200,56 @@ I crossings_with_mask(const V& cut, I sep_index, const VV& graph, const V& index
 	return 0;
 }
 
+// Use dynamic programming over subsets of new vertices (Hamiltonian cycle)
+I best_permutation(const V& vertices, const VV& graph, const V& index)
+{
+	I n = vertices.size();
+	V submasks;
+	map<I, I> dp;
+	I m = count_masks(n) - 1;
+	for(I s = m; s != 0; s = (s-1)&m)
+	{
+		submasks.push_back(s);
+	}
+	reverse(submasks.begin(), submasks.end());
+	for(auto mask : submasks){
+		if(__builtin_popcountll(mask) == 1)
+		{
+			dp[mask] = 0;
+			continue;
+		}
+		dp[mask] = INF;
+		for(auto i = 0; i < n; i++)
+		{
+			I bit = (1LL<<i);
+			I u = vertices[i];
+			if(!(mask & bit))
+			{
+				continue;
+			}
+			I new_mask = mask ^ bit;
+			I cost = dp[new_mask];
+			for(auto j = 0; j < n; j++)
+			{
+				if(i == j)
+				{
+					continue;
+				}
+				I bit2 = (1LL<<j);
+				if(!(mask & bit2))
+				{
+					continue;
+				}
+				I w = vertices[j];
+				P c = count_crossings(u, w, graph, index);
+				cost += c.first; // We put u after w so we count pairs with u's neighbors comes first
+			}
+			dp[mask] = min(dp[mask], cost);	
+		}
+	}
+	return dp[m];
+}
+
 
 // [TODO] Do a forget step before the next introduce.
 // When forget v: T[X] = T'[X] + T'[XU{v}]
@@ -268,6 +318,7 @@ void run_solver(const VV& graph, const V& arrangement, const V& index, const VP&
 		// so only one of them is in cut
 		// anything introduced is suited anyway so just permute added vertices and append them.
 		I prev_size = cut_size;
+		V added_vertices;
 		if(neighbor_range[v].second > ind)
 		{
 			if(is_fixed_partition(v, parameters))
@@ -276,6 +327,7 @@ void run_solver(const VV& graph, const V& arrangement, const V& index, const VP&
 				{
 					if(index[w] > ind && !cut_mask[w])
 					{
+						added_vertices.push_back(w);
 						cut[cut_size++] = w;
 						cut_mask[w] = 1;
 					}
@@ -285,6 +337,7 @@ void run_solver(const VV& graph, const V& arrangement, const V& index, const VP&
 			{
 				if(!cut_mask[v])
 				{
+					added_vertices.push_back(v);
 					cut[cut_size++] = v;
 					cut_mask[v] = 1;
 				}
@@ -297,17 +350,16 @@ void run_solver(const VV& graph, const V& arrangement, const V& index, const VP&
 		// Update the DP table
 		// For each partition of S, the new vertices of S come after old.
 		// If some old vertices come after these, they will not be in partition.
-		
 		V& curr_sol = sol[curr_par];
 		const V& last_sol = sol[other_par];
 		curr_sol.assign(count_masks(cut_size), INF);
-		I all_bits = (1LL<<cut_size) - 1;
-		I old_bits = (1LL<<prev_size) - 1;
+		I all_bits = count_masks(cut_size) - 1;
+		I old_bits = count_masks(prev_size) - 1;
 		I new_bits = all_bits ^ old_bits;		
 		for(I mask = 0; mask < (1LL<<cut_size); mask++)
 		{
 			I old_mask = mask & old_bits;
-			curr_sol[mask] = last_sol[old_mask] + crossings_with_mask(cut, prev_size, graph, index);
+			curr_sol[mask] = last_sol[old_mask] + crossings_with_mask(cut, prev_size, graph, index) + best_permutation(added_vertices, graph, index);
 		}
 		swap(curr_par, other_par);
 	}

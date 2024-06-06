@@ -26,3 +26,6 @@ n2 = list(map(lambda x: x['n2'], all_data))
 m = list(map(lambda x: x['m'], all_data))
 ctw = list(map(lambda x: x['ctw'], all_data))
 print(max(n1), max(n2), max(m), max(ctw))
+
+ctw_finer = [(x*10, len([c for c in ctw if c/10 < x])) for x in range(10)]
+print(ctw_finer)
