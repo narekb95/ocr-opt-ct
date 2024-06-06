@@ -108,12 +108,12 @@ PP read_input(V& arrangement, VV& graph)
 
  void err(const string& err)
  {
-#ifdef __DEBUG
- 	cout << "Error " << err << endl;
+// #ifdef __DEBUG
+ 	// cout << "Error " << err << endl;
 	exit(-1);
-#else
-	while(true);
-#endif
+// #else
+	// while(true);
+// #endif
  }
  I count_masks(I size)
  {
@@ -142,6 +142,21 @@ I remove_index(const I& mask, const I& ind)
 	return (before | after);
 }
 
+V get_set_from_mask(const V& cut, I mask)
+{
+	V out;
+	I n = cut.size();
+	string s;
+	for(I i = 0; i < n; i++)
+	{
+		if(mask & (1LL<<i))
+		{
+			out.push_back(i);
+		}
+	}
+	return out;
+}
+
 // Returns cuv and cvu.
 // cvu is number of pairs i, j in permanent such that i < j, i neighbor of u and j neighbor of v.
 // i.e. c(u,v) is the number of crossings of (v, u)
@@ -168,7 +183,9 @@ P count_crossings(I u, I v, const VV& graph, const V& index)
 			cvu--;
 		}
 	}
-	cout << "u: " << u + 1 << " v: " << v + 1 << " cuv: " << cuv << " cvu: " << cvu << " common: " << common << endl;
+// #ifdef __DEBUG
+// 	cout << "u: " << u + 1 << " v: " << v + 1 << " cuv: " << cuv << " cvu: " << cvu << " common: " << common << endl;
+// #endif
 	assert(cuv + cvu + common == n1 * n2);
 	return P(cuv, cvu);
 }
@@ -249,27 +266,54 @@ I best_permutation(const V& vertices, const VV& graph, const V& index)
 	return dp[m];
 }
 
+I add_indices_back(I mask, const V& removed_indices, I old_size)
+{
+	if(removed_indices[0] == 0)
+	{
+		mask <<= 1;
+		mask |= 1;
+	}
+	I all_bits = count_masks(old_size) - 1;
+	I c = removed_indices.size();
+	for(I bit = 1, ind = 1, prev_bits = 1; bit < old_size; bit++)
+	{
+		if(ind < c && removed_indices[ind] == bit)
+		{
+			I otherbits = all_bits ^ prev_bits;
+			I small_mask = mask & prev_bits;
+			I big_mask = mask & otherbits;
+			big_mask = (big_mask << 1);
+			mask = small_mask | (1LL<<bit) | big_mask;
+			ind++;
+		}
+		prev_bits = ((prev_bits<<1) | 1);
+	}
+	return mask;
+}
+
 // Forget vertex and update cut and cut_mask.
 // Elements after w in cut are shited to the left.
 // Add min of X and XU{V} to T[X'] where X' is the mask corresp to X after removing w.
-void forget_vertex(const I& w, const I& cut_ind, V& cut, V& cut_mask, I& cut_size, const VV& graph, V& curr_sol, const V& last_sol)
+void forget_vertices(const V& vertices, const V& cut_indices, V& cut, V& cut_mask, I& cut_size, const VV& graph, V& curr_sol, const V& last_sol)
 {
-	I n_masks = count_masks(cut_size);
-	curr_sol.assign(count_masks(cut_size - 1), INF); // new mask size
+	I new_size = cut_size - vertices.size();
+	I n_masks = count_masks(new_size);
+	curr_sol.resize(n_masks); // new mask size
 	for(I mask = 0; mask < n_masks; mask++)
 	{
-		I new_mask = remove_index(mask, cut_ind);
-		assert(new_mask < curr_sol.size());
-		curr_sol[new_mask] = min(curr_sol[new_mask], last_sol[mask]);
+		I old_mask = add_indices_back(mask, cut_indices, n_masks, cut_size);
+		assert(old_mask < last_sol.size());
+		curr_sol[mask] = last_sol[old_mask];
 	}
-	// remove w from cut
+	// remove vertices from cut
+	// TODO
 	cut_mask[w] = 0;
 	for(I j = cut_ind; j < cut_size -1; j++)
 	{
 		cut[j] = cut[j+1];
 	}
 	cut.pop_back();
-	cut_size--;		
+	cut_size = new_size;
 }
 
 // Cut are non-fixed endpoints of cut edges 
@@ -293,6 +337,10 @@ void run_solver(const VV& graph, const V& arrangement, const V& index, const VP&
 	for(I ind = 0; ind < n; ind++) // arrangement index
 	{
 		I v = arrangement[ind];
+		
+#ifdef __DEBUG
+		cout << "Cut at index: " << ind << " Vertex: " << v << endl;
+#endif
 		d_assert(ind == index[v]);
 
 		// Forget vertices with no right neighbors
@@ -359,6 +407,13 @@ void run_solver(const VV& graph, const V& arrangement, const V& index, const VP&
 			}
 			curr_sol[mask] = last_sol[old_mask] + crossings_with_mask(cut, prev_size, graph, index) + best_permutation(added_vertices, graph, index);
 		}
+#ifdef __DEBUG
+		for(I mask = 0; mask < count_masks(cut_size); mask++)
+		{
+			cout << "[" << get_set_from_mask(cut, mask) <<"]: " << curr_sol[mask] << endl;
+		}
+		cout << endl << endl;
+#endif
 		swap(curr_par, other_par);
 	}
 	assert(cut_size == 0);
@@ -446,6 +501,11 @@ void compute_index_and_sort(const V& arrangement, V& index, VV& graph, VP& neigh
 int main()
 {
 	ios_base::sync_with_stdio(0);
+// #ifdef __DEBUG
+// 	cout << 0b10111 << " " <<  add_indices_back(0b101, {0,2}, 5) << endl;
+// 	cout << 0b1101111 << " " <<  add_indices_back(0b1011, {0,1,6}, 7) << endl;
+// 	cout << 0b1001111 << " " <<  add_indices_back(0b11, {0,1,6}, 7) << endl;
+// #endif
 	V arrangement;
 	VV graph;
 	PP parameters = read_input(arrangement, graph);
@@ -471,8 +531,9 @@ int main()
 	cout << endl;
 	cout << "Arrangement: " << arrangement << endl;
 	cout << "Index: " << index << endl;
-	cout << "Neighbor range: " << neighbor_range << endl;
+	cout << "Neighbor range: " << neighbor_range << endl << endl << endl;
 #endif
+
 	run_solver(graph, arrangement, index, neighbor_range, parameters);
 	return 0;
 }
