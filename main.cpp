@@ -294,26 +294,41 @@ I add_indices_back(I mask, const V& removed_indices, I old_size)
 // Forget vertex and update cut and cut_mask.
 // Elements after w in cut are shited to the left.
 // Add min of X and XU{V} to T[X'] where X' is the mask corresp to X after removing w.
-void forget_vertices(const V& vertices, const V& cut_indices, V& cut, V& cut_mask, I& cut_size, const VV& graph, V& curr_sol, const V& last_sol)
+void forget_vertices(VP& foget_vertices, V& cut, V& cut_mask, I& cut_size, const VV& graph, V& curr_sol, const V& last_sol)
 {
+	cout << "Forget vertices: " << foget_vertices << endl;
+	V vertices;
+	V cut_indices;
+	for(const auto& p : foget_vertices)
+	{
+		vertices.push_back(p.first);
+		cut_indices.push_back(p.second);
+	}
 	I new_size = cut_size - vertices.size();
 	I n_masks = count_masks(new_size);
 	curr_sol.resize(n_masks); // new mask size
 	for(I mask = 0; mask < n_masks; mask++)
 	{
-		I old_mask = add_indices_back(mask, cut_indices, n_masks, cut_size);
+		I old_mask = add_indices_back(mask, cut_indices, cut_size);
 		assert(old_mask < last_sol.size());
 		curr_sol[mask] = last_sol[old_mask];
 	}
 	// remove vertices from cut
-	// TODO
-	cut_mask[w] = 0;
-	for(I j = cut_ind; j < cut_size -1; j++)
+	// [TODO] Test this
+	I i = 0, j = 0;
+	for(auto w : vertices)
 	{
-		cut[j] = cut[j+1];
+		while(cut[i] != w)
+		{
+			i++;
+		}
+		assert(cut[i] == w);
+		cut[i] = cut[j];
+		j++;
+		cut_size--;
+		cut_mask[w] = 0;
 	}
-	cut.pop_back();
-	cut_size = new_size;
+	assert(cut_size == new_size);
 }
 
 // Cut are non-fixed endpoints of cut edges 
@@ -340,25 +355,33 @@ void run_solver(const VV& graph, const V& arrangement, const V& index, const VP&
 		
 #ifdef __DEBUG
 		cout << "Cut at index: " << ind << " Vertex: " << v << endl;
+		V cut_print;
+		cout << "Cut: ";
+		copy(cut.begin(), cut.begin()+cut_size, ostream_iterator<I>(cout, " "));
+		cout << endl;
 #endif
 		d_assert(ind == index[v]);
 
 		// Forget vertices with no right neighbors
-		for(I i = 0; i < cut_size;) // index of vertices in cut
+		VP forget;
+		for(I i = 0; i < cut_size;i++) // index of vertices in cut
 		{
 			I w = cut[i];
-			if(index[w] > ind || neighbor_range[w].second > ind)
+			if(index[w] <= ind && neighbor_range[w].second <= ind)
 			{
-				i++;
-				continue;
+				forget.push_back(P(w, i));
 			}
-			forget_vertex(w, i, cut, cut_mask, cut_size, graph, sol[curr_par], sol[other_par]);	
+		}
+		if(!forget.empty())
+		{
+			forget_vertices(forget, cut, cut_mask, cut_size, graph, sol[curr_par], sol[other_par]);	
 			swap(curr_par, other_par);
 		}
 
 		// Introduce v or its right neighbors if it has right neighbors
 		// Either v or all its neighbors are fixed partition
 		// Anything introduced is suited anyway so just permute added vertices and append them.
+		cout << "Introducing vertices" << endl;
 		I prev_size = cut_size;
 		if(neighbor_range[v].second > ind)
 		{
