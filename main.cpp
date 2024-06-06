@@ -117,7 +117,7 @@ PP read_input(V& arrangement, VV& graph)
  }
  I count_masks(I size)
  {
-	if(size > 64)
+	if(size > 63)
 	{
 		err("Too many vertices in cut");
 	}
