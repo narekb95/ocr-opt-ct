@@ -125,7 +125,7 @@ bool is_fixed_partition(const I& v, const PP& parameters)
 // Updates mask after removing element from a set
 I remove_index(const I& mask, const I& ind)
 {
-	I all_ones = (1LL<<61) - 1;
+	I all_ones = I(-1);
 	I bit = 1LL<<ind;
 	I all_before = bit-1;
 	I all_after = all_ones ^ all_before;
@@ -134,7 +134,6 @@ I remove_index(const I& mask, const I& ind)
 	after >>= 1;
 	return (before | after);
 }
-
 
 // Returns cuv and cvu.
 // cvu is number of pairs i, j in permanent such that i < j, i neighbor of u and j neighbor of v.
