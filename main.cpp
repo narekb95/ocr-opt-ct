@@ -16,6 +16,8 @@ using VVP = vector<VP>;
 
 constexpr I INF = I(-1);
 
+map<P,I> crossings;
+
 // Prints a vector
 template<class T>
 ostream& operator <<(ostream& out, const vector<T>& a){
@@ -189,31 +191,62 @@ P count_crossings(I u, I v, const VV& graph, const V& index)
 	assert(cuv + cvu + common == n1 * n2);
 	return P(cuv, cvu);
 }
-// Actually new vertices do not have edges with forgotten edges, so only crossings introduced are between old mask and new mask
-// Build the function C (count crossings between a pair) dynamically, because for many pairs will never be computed
-I crossings_with_mask(const V& cut, I sep_index, const VV& graph, const V& index)
+
+// Counts crossings between S[i-1](MASK) and W, and between  W(MASK) and W\W(MASK)
+// Added vertices in Mask come after rest of mask 
+I crossings_with_mask(const I& mask, const V& cut, I sep_index, const VV& graph, const V& index)
 {
 	I n = cut.size();
-	I i = 0, j = sep_index;
-	static map<P,I> crossings;
-	map<P,I>::iterator it;
-	for(i = 0 ; i < sep_index; i++)
+	I ans = 0;
+	
+	// Between S(mask) and W
+	for(I i = 0 ; i < sep_index; i++)
 	{
-		for(j = sep_index; j < n; j++)
+		if(!((1LL<<i)&mask))
+		{
+			continue;
+		}
+		for(I j = sep_index; j < n; j++)
 		{
 			I u = cut[i];
 			I v = cut[j];
-			if((it = crossings.find({u,v})) == crossings.end())
+			if(crossings.find({u,v}) == crossings.end())
 			{
 				P c = count_crossings(u,v, graph, index);
 				// swap left and right since c is defined as "well ordered paris".
 				crossings[{v, u}] = c.first;
 				crossings[{u, v}] = c.second;
 			}
-			return crossings[{u,v}];
+			ans += crossings[{u,v}];
 		}
 	}
-	return 0;
+
+	// Between W(mask) and W(rest)
+	for(I i = sep_index; i < n; i++)
+	{
+		if(!((1LL<<i)&mask))
+		{
+			continue;
+		}
+		for(I j = sep_index; j < n; j++)
+		{
+			if((1LL<<i)&mask)
+			{
+				continue;
+			}			
+			I u = cut[i];
+			I v = cut[j];
+			if(crossings.find({u,v}) == crossings.end())
+			{
+				P c = count_crossings(u,v, graph, index);
+				// swap left and right since c is defined as "well ordered paris".
+				crossings[{v, u}] = c.first;
+				crossings[{u, v}] = c.second;
+			}
+			ans += crossings[{u,v}];
+		}
+	}
+	return ans;
 }
 
 // Use dynamic programming over subsets of new vertices (Hamiltonian cycle)
@@ -410,8 +443,6 @@ void run_solver(const VV& graph, const V& arrangement, const V& index, const VP&
 			continue;
 		}
 		// Update the DP table
-		// For each partition of S, the new vertices of S come after old.
-		// If some old vertices come after these, they will not be in partition.
 		V& curr_sol = sol[curr_par];
 		const V& last_sol = sol[other_par];
 		curr_sol.assign(count_masks(cut_size), INF);
@@ -428,8 +459,9 @@ void run_solver(const VV& graph, const V& arrangement, const V& index, const VP&
 					added_vertices.push_back(cut[j]);
 				}
 			}
-			curr_sol[mask] = last_sol[old_mask] + crossings_with_mask(cut, prev_size, graph, index) + best_permutation(added_vertices, graph, index)
-			+ crossings_in_mask_out_mask(); // todo
+			curr_sol[mask] = last_sol[old_mask] 
+				+ crossings_with_mask(mask, cut, prev_size, graph, index) 
+				+ best_permutation(added_vertices, graph, index);
 		}
 #ifdef __DEBUG
 		for(I mask = 0; mask < count_masks(cut_size); mask++)
