@@ -1,4 +1,5 @@
 out
+release
 *.in
 .vscode/
 data/
