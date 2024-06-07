@@ -34,6 +34,12 @@ ostream& operator<<(ostream& out, const pair<S,T>& p)
 	return out;
 }
 
+void debug(const string& s)
+{
+#ifdef __DEBUG
+	cout << s << endl;
+#endif
+}
 void d_assert(bool b)
 {
 #ifdef __DEBUG
@@ -153,7 +159,7 @@ V get_set_from_mask(const V& cut, I mask)
 	{
 		if(mask & (1LL<<i))
 		{
-			out.push_back(i);
+			out.push_back(cut[i]);
 		}
 	}
 	return out;
@@ -194,21 +200,20 @@ P count_crossings(I u, I v, const VV& graph, const V& index)
 
 // Counts crossings between S[i-1](MASK) and W, and between  W(MASK) and W\W(MASK)
 // Added vertices in Mask come after rest of mask 
-I crossings_with_mask(const I& mask, const V& cut, I sep_index, const VV& graph, const V& index)
+I crossings_with_mask(const I& mask, const V& cut, const I& cut_size, I sep_index, const VV& graph, const V& index)
 {
-	I n = cut.size();
 	I ans = 0;
 	
 	// Between S(mask) and W
 	for(I i = 0 ; i < sep_index; i++)
 	{
+		I u = cut[i];
 		if(!((1LL<<i)&mask))
 		{
 			continue;
 		}
-		for(I j = sep_index; j < n; j++)
+		for(I j = sep_index; j < cut_size; j++)
 		{
-			I u = cut[i];
 			I v = cut[j];
 			if(crossings.find({u,v}) == crossings.end())
 			{
@@ -222,13 +227,13 @@ I crossings_with_mask(const I& mask, const V& cut, I sep_index, const VV& graph,
 	}
 
 	// Between W(mask) and W(rest)
-	for(I i = sep_index; i < n; i++)
+	for(I i = sep_index; i < cut_size; i++)
 	{
 		if(!((1LL<<i)&mask))
 		{
 			continue;
 		}
-		for(I j = sep_index; j < n; j++)
+		for(I j = sep_index; j < cut_size; j++)
 		{
 			if((1LL<<i)&mask)
 			{
@@ -250,12 +255,20 @@ I crossings_with_mask(const I& mask, const V& cut, I sep_index, const VV& graph,
 }
 
 // Use dynamic programming over subsets of new vertices (Hamiltonian cycle)
-I best_permutation(const V& vertices, const VV& graph, const V& index)
+I best_permutation(const I& mask, const V& cut, const I& cut_size, const I& sep_index, const VV& graph, const V& index)
 {
-	I n = vertices.size();
+	V new_in_mask;
+	for(I i = sep_index; i < cut_size; i++)
+	{
+		if((1LL<<i)& mask)
+		{
+			new_in_mask.push_back(cut[i]);
+		}
+	}
+	I n = new_in_mask.size();
+	I m = count_masks((new_in_mask.size()));
 	V submasks;
 	map<I, I> dp;
-	I m = count_masks(n) - 1;
 	for(I s = m; s != 0; s = (s-1)&m)
 	{
 		submasks.push_back(s);
@@ -271,7 +284,7 @@ I best_permutation(const V& vertices, const VV& graph, const V& index)
 		for(I i = 0; i < n; i++)
 		{
 			I bit = (1LL<<i);
-			I u = vertices[i];
+			I u = new_in_mask[i];
 			if(!(mask & bit))
 			{
 				continue;
@@ -289,7 +302,7 @@ I best_permutation(const V& vertices, const VV& graph, const V& index)
 				{
 					continue;
 				}
-				I w = vertices[j];
+				I w = new_in_mask[j];
 				P c = count_crossings(u, w, graph, index);
 				cost += c.first; // We put u after w so we count pairs with u's neighbors comes first
 			}
@@ -329,7 +342,9 @@ I add_indices_back(I mask, const V& removed_indices, I old_size)
 // Add min of X and XU{V} to T[X'] where X' is the mask corresp to X after removing w.
 void forget_vertices(VP& foget_vertices, V& cut, V& cut_mask, I& cut_size, const VV& graph, V& curr_sol, const V& last_sol)
 {
+#ifdef __DEBUG
 	cout << "Forget vertices: " << foget_vertices << endl;
+#endif
 	V vertices;
 	V cut_indices;
 	for(const auto& p : foget_vertices)
@@ -385,15 +400,15 @@ void run_solver(const VV& graph, const V& arrangement, const V& index, const VP&
 	for(I ind = 0; ind < n; ind++) // arrangement index
 	{
 		I v = arrangement[ind];
+		d_assert(ind == index[v]);
 		
 #ifdef __DEBUG
-		cout << "Cut at index: " << ind << " Vertex: " << v << endl;
+		cout << "Cut index: " << ind << " Vertex: " << v << endl;
 		V cut_print;
-		cout << "Cut: ";
+		cout << "Cut before processing: ";
 		copy(cut.begin(), cut.begin()+cut_size, ostream_iterator<I>(cout, " "));
 		cout << endl;
 #endif
-		d_assert(ind == index[v]);
 
 		// Forget vertices with no right neighbors
 		VP forget;
@@ -407,14 +422,25 @@ void run_solver(const VV& graph, const V& arrangement, const V& index, const VP&
 		}
 		if(!forget.empty())
 		{
-			forget_vertices(forget, cut, cut_mask, cut_size, graph, sol[curr_par], sol[other_par]);	
+			forget_vertices(forget, cut, cut_mask, cut_size, graph, sol[curr_par], sol[other_par]);
+#ifdef __DEBUG
+			for(I mask = 0; mask < count_masks(cut_size); mask++)
+			{
+				cout << "[" << get_set_from_mask(cut, mask) <<"]: " << sol[curr_par][mask] << endl;
+			}
+			cout << endl << endl;
+#endif
 			swap(curr_par, other_par);
+		}
+		else
+		{
+			debug("No forget vertices.");
 		}
 
 		// Introduce v or its right neighbors if it has right neighbors
 		// Either v or all its neighbors are fixed partition
 		// Anything introduced is suited anyway so just permute added vertices and append them.
-		cout << "Introducing vertices" << endl;
+		debug("Introducing vertices");
 		I prev_size = cut_size;
 		if(neighbor_range[v].second > ind)
 		{
@@ -428,18 +454,32 @@ void run_solver(const VV& graph, const V& arrangement, const V& index, const VP&
 						cut_mask[w] = 1;
 					}
 				}
+#ifdef __DEBUG
+				cout << "Fixed partition\nAdded vertices: ";
+				for(I h = prev_size; h < cut_size; h++)
+				{
+					cout << cut[h] << " ";
+				}
+				cout << endl;
+#endif
 			} 
 			else
 			{
 				if(!cut_mask[v])
 				{
+					debug("vertex added to partition.");
 					cut[cut_size++] = v;
 					cut_mask[v] = 1;
+				}
+				else
+				{
+					debug("vertex already in partition");
 				}
 			}
 		}
 		if(cut_size == prev_size)
 		{
+			debug("No introduced vertices.\n\n");
 			continue;
 		}
 		// Update the DP table
@@ -460,8 +500,8 @@ void run_solver(const VV& graph, const V& arrangement, const V& index, const VP&
 				}
 			}
 			curr_sol[mask] = last_sol[old_mask] 
-				+ crossings_with_mask(mask, cut, prev_size, graph, index) 
-				+ best_permutation(added_vertices, graph, index);
+				+ crossings_with_mask(mask, cut, cut_size, prev_size, graph, index) 
+				+ best_permutation(mask, cut, cut_size, prev_size, graph, index);
 		}
 #ifdef __DEBUG
 		for(I mask = 0; mask < count_masks(cut_size); mask++)
