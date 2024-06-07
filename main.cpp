@@ -291,7 +291,6 @@ I best_permutation(const V& permutation_vertices, const VV& graph, const V& inde
 	return perm_DP[m-1];
 }
 
-// [TODO] this is wrong now, correct and when everything is correct make obsolete
 // [TODO] This should become obsolete by precomputing DP for the full set of added vertices
 // Use dynamic programming over subsets of new vertices (Hamiltonian cycle)
 I best_permutation_fixed_mask(const I& mask, const V& cut, const I& cut_size, const I& sep_index, const VV& graph, const V& index)
