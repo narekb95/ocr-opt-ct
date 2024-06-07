@@ -183,19 +183,19 @@ I count_crossings(I u, I v, const VV& graph, const V& index)
 			{
 				j++;
 			}		
-			cuv += j;
-			cvu += (n2 - j); // assume first that current is larger
+			cvu += j;
+			cuv += (n2 - j); // assume first not equal
 			if(j < n2 && index[a2[j]] == index[a1[i]]) //subtract one if equal
 			{
 				common++;
-				cvu--;
+				cuv--;
 			}
 		}
 		assert(cuv + cvu + common == n1 * n2);
 		crossings[{u, v}] = cvu;
 		crossings[{v,u}] = cuv;
 // #ifdef __DEBUG
-		// cout << "Count crossings: " << u << ", " << v << ": (" << crossings[P(u,v)] << ", " << crossings[P(v,u)] << ", " << common <<")"<< endl;
+// 		cout << "\n<>~~<>~~<> Count crossings: " << u << ", " << v << ": (" << cuv << ", " << cvu << "| " << crossings[P(u,v)] << ", " << crossings[P(v,u)] << ", " << common <<")"<< endl;
 // #endif
 	}
 	return crossings[{u,v}];
@@ -205,24 +205,25 @@ I count_crossings(I u, I v, const VV& graph, const V& index)
 // Added vertices in Mask come after rest of mask 
 I crossings_with_mask(const I& mask, const V& cut, const I& cut_size, I sep_index, const VV& graph, const V& index)
 {
-	I ans = 0;
-	
 	// Between S(mask) and W
+	I Sm_W = 0;
 	for(I i = 0 ; i < sep_index; i++)
 	{
-		I u = cut[i];
 		if(!((1LL<<i)&mask))
 		{
 			continue;
 		}
+		I u = cut[i];
 		for(I j = sep_index; j < cut_size; j++)
 		{
 			I v = cut[j];
-			ans += count_crossings(u,v, graph, index);
+			I c = count_crossings(u, v, graph, index);
+			Sm_W += c;
 		}
 	}
 
 	// Between W(mask) and W(rest)
+	I Wm_Wr = 0;
 	for(I i = sep_index; i < cut_size; i++)
 	{
 		if(!((1LL<<i)&mask))
@@ -238,10 +239,12 @@ I crossings_with_mask(const I& mask, const V& cut, const I& cut_size, I sep_inde
 			I u = cut[i];
 			I v = cut[j];
 
-			ans += count_crossings(u,v, graph, index);
+			Wm_Wr += count_crossings(u,v, graph, index);
 		}
 	}
-	return ans;
+	// cout << "S[mask]-W[all] crosses:  " << Sm_W << endl;
+	// cout << "W[mask]-W[rest] crosses: " << Wm_Wr << endl;
+	return Sm_W + Wm_Wr;
 }
 
 V perm_DP;
@@ -600,14 +603,16 @@ void run_solver(const VV& graph, const V& arrangement, const V& index, const VP&
 #ifdef __DEBUG
 			cout << "---" << endl;
 			cout << "Full mask: " << get_set_from_mask(cut, mask, cut_size) << endl;
-			// cout << "Old mask: " << old_mask << " [" << get_set_from_mask(cut, old_mask, cut_size) << "]" << endl;
+			cout << "Old mask: " << " [" << get_set_from_mask(cut, old_mask, cut_size) << "]" << endl;
+			I mask_crossings = crossings_with_mask(mask, cut, cut_size, prev_size, graph, index);
 			cout << "Last solution:" << last_sol[old_mask] << endl;
-			cout << "Crossings with mask: "<< crossings_with_mask(mask, cut, cut_size, prev_size, graph, index) <<endl;
+			cout << "Crossings with mask: "<< mask_crossings <<endl;
 			cout << "Best permutation: " << best_permutation_fixed_mask(mask, cut, cut_size, prev_size, graph, index) << endl;
 #endif
-			curr_sol[mask] = last_sol[old_mask] 
+			curr_sol[mask] = min(curr_sol[mask],
+				last_sol[old_mask]
 				+ crossings_with_mask(mask, cut, cut_size, prev_size, graph, index)
-				+ best_permutation_fixed_mask(mask, cut, cut_size, prev_size, graph, index);
+				+ best_permutation_fixed_mask(mask, cut, cut_size, prev_size, graph, index));
 		}
 #ifdef __DEBUG
 		cout << "Solutions:" << endl;
