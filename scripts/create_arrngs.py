@@ -1,6 +1,7 @@
 #!/bin/python3
 import os
 from sys import argv
+from random import shuffle
 
 def list_files(directory):
     return next(folder for folder in os.walk(directory, topdown=True))[2]
@@ -25,7 +26,9 @@ for file in files:
             line.append(str(n1*n2))
             line = ' '.join(line)
             output.write(line+'\n')
-            for i in range(n1+n2):
+            lin_arrange = list(range(n1+n2))
+            shuffle(lin_arrange)
+            for i in lin_arrange:
                 output.write(str(i+1)+'\n')
         else:
             if(len(line) > 0):
