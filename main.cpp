@@ -1,5 +1,5 @@
 #include<bits/stdc++.h>
-
+#include<fstream>
 using namespace std;
 
 using I = unsigned long long int;
@@ -66,14 +66,15 @@ void split_line(const string& str, VS& line)
 // Arrangement: is the linear arrangement as given in input
 // Index: is the index of each vertex in the linear arrangement
 // Graph: adj lists
-PP read_input(V& arrangement, VV& graph)
+PP read_input(const string& file, V& arrangement, VV& graph)
 {
+	ifstream fin(file);
 	I n1, n2, m, ctw;
 	string s;
 
 	I first_line = 0;
 	I arrg_itr = 0;
-	while(getline(cin, s))
+	while(getline(fin, s))
 	{
 		if(s[0] == 'c')
 			continue;
@@ -594,7 +595,7 @@ void compute_index_and_sort(const V& arrangement, V& index, VV& graph, VP& neigh
 	});
 }
 
-int main()
+int main(int argc, char* argv[])
 {
 	ios_base::sync_with_stdio(0);
 // #ifdef __DEBUG
@@ -602,9 +603,10 @@ int main()
 // 	cout << 0b1101111 << " " <<  add_indices_back(0b1011, {0,1,6}, 7) << endl;
 // 	cout << 0b1001111 << " " <<  add_indices_back(0b11, {0,1,6}, 7) << endl;
 // #endif
+	string file = argv[1];
 	V arrangement;
 	VV graph;
-	PP parameters = read_input(arrangement, graph);
+	PP parameters = read_input(file, arrangement, graph);
 	
 	// Remove isolated vertices
 	V solution;
