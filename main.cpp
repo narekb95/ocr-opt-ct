@@ -315,7 +315,7 @@ void remove_vertices_from_cut(const V& vertices, V& cut, I& cut_size, V& cut_mas
 	cut_size =  new_cut_ind;
 	for(const auto& v : vertices)
 	{
-		assert(cut_mask[v] = 1);
+		assert(cut_mask[v] == 1);
 		cut_mask[v] = 0;
 	}
 }
