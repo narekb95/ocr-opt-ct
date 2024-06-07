@@ -248,10 +248,14 @@ I crossings_with_mask(const I& mask, const V& cut, const I& cut_size, I sep_inde
 }
 
 V perm_DP;
-void best_permutation(const V& permutation_vertices, const VV& graph, const V& index)
+void best_permutation(const V& permutation_vertices, const VV& graph, const V& index, I start = 0, I end = INF)
 {
-	I n = permutation_vertices.size();
-	I m = count_masks((permutation_vertices.size()));
+	if(end == INF)
+	{
+		end = permutation_vertices.size();
+	}
+	I n = end - start;
+	I m = count_masks(n);
 	if(perm_DP.size()<m)
 	{
 		perm_DP.resize(m);
@@ -271,7 +275,7 @@ void best_permutation(const V& permutation_vertices, const VV& graph, const V& i
 			{
 				continue;
 			}
-			I u = permutation_vertices[i];
+			I u = permutation_vertices[start + i];
 			I prev_mask = mask ^ bit;
 			I cost = perm_DP[prev_mask];
 			if(cost == INF)
@@ -285,31 +289,12 @@ void best_permutation(const V& permutation_vertices, const VV& graph, const V& i
 				{
 					continue;
 				}
-				I w = permutation_vertices[j];
+				I w = permutation_vertices[start + j];
 				cost += count_crossings(u, w, graph, index);
 			}
 			perm_DP[mask] = min(perm_DP[mask], cost);	
 		}
 	}
-}
-
-// [TODO] This should become obsolete by precomputing DP for the full set of added vertices
-// Use dynamic programming over subsets of new vertices (Hamiltonian cycle)
-I best_permutation_fixed_mask(const I& mask, const V& cut, const I& cut_size, const I& sep_index, const VV& graph, const V& index)
-{
-	V permutation_vertices = get_set_from_mask(cut, mask, cut_size, sep_index);
-	if(permutation_vertices.size() <= 1)
-	{
-		return 0;
-	}
-// #ifdef __DEBUG
-// 	cout << "permutation crossings:\nPermutation vertices: " << get_set_from_mask(cut, mask, cut_size, sep_index) << endl; 
-// 	cout << "first added index: " << sep_index << " cut size: " << cut_size << endl;
-// 	cout << "Permutation vertices: " <<  permutation_vertices << endl;
-// #endif
-
-	best_permutation(permutation_vertices, graph, index);
-	return perm_DP[count_masks(permutation_vertices.size())-1];
 }
 
 I add_indices_back(I mask, const V& removed_indices, I old_size)
@@ -557,7 +542,7 @@ void run_solver(const VV& graph, const V& arrangement, const V& index, const VP&
 			{
 				if(!cut_mask[v])
 				{
-					debug("vertex added to partition.");
+					debug("Cut vertex added to partition.");
 					cut[cut_size++] = v;
 					cut_mask[v] = 1;
 				}
@@ -582,6 +567,8 @@ void run_solver(const VV& graph, const V& arrangement, const V& index, const VP&
 		}
 		fill(curr_sol.begin(), curr_sol.begin()+n_masks, INF); // new mask size
 
+		best_permutation(cut, graph, index, prev_size, cut_size);
+
 		I old_bits = count_masks(prev_size) - 1;
 		// [TODO] this computes permutation for the same sets multiple times
 		// -> Precompute the dp table and access its values globally.
@@ -592,14 +579,8 @@ void run_solver(const VV& graph, const V& arrangement, const V& index, const VP&
 			{
 				continue;
 			}
-			V added_vertices;
-			for(I j = prev_size; j < cut_size; j++)
-			{
-				if(mask & (1LL<<j))
-				{
-					added_vertices.push_back(cut[j]);
-				}
-			}
+			I added_mask = mask >> prev_size;
+			assert(added_mask < count_masks(cut_size - prev_size));
 #ifdef __DEBUG
 			cout << "---" << endl;
 			cout << "Full mask: " << get_set_from_mask(cut, mask, cut_size) << endl;
@@ -607,12 +588,12 @@ void run_solver(const VV& graph, const V& arrangement, const V& index, const VP&
 			I mask_crossings = crossings_with_mask(mask, cut, cut_size, prev_size, graph, index);
 			cout << "Last solution:" << last_sol[old_mask] << endl;
 			cout << "Crossings with mask: "<< mask_crossings <<endl;
-			cout << "Best permutation: " << best_permutation_fixed_mask(mask, cut, cut_size, prev_size, graph, index) << endl;
+			cout << "Best permutation: " << perm_DP[added_mask];
 #endif
 			curr_sol[mask] = min(curr_sol[mask],
 				last_sol[old_mask]
 				+ crossings_with_mask(mask, cut, cut_size, prev_size, graph, index)
-				+ best_permutation_fixed_mask(mask, cut, cut_size, prev_size, graph, index));
+				+ perm_DP[added_mask]);
 		}
 #ifdef __DEBUG
 		cout << "Solutions:" << endl;
