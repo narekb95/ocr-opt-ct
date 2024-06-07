@@ -428,7 +428,8 @@ void run_solver(const VV& graph, const V& arrangement, const V& index, const VP&
 					added_vertices.push_back(cut[j]);
 				}
 			}
-			curr_sol[mask] = last_sol[old_mask] + crossings_with_mask(cut, prev_size, graph, index) + best_permutation(added_vertices, graph, index);
+			curr_sol[mask] = last_sol[old_mask] + crossings_with_mask(cut, prev_size, graph, index) + best_permutation(added_vertices, graph, index)
+			+ crossings_in_mask_out_mask(); // todo
 		}
 #ifdef __DEBUG
 		for(I mask = 0; mask < count_masks(cut_size); mask++)
