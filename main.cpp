@@ -16,8 +16,6 @@ using VVP = vector<VP>;
 
 constexpr I INF = I(-1);
 
-map<P,I> crossings;
-
 // Prints a vector
 template<class T>
 ostream& operator <<(ostream& out, const vector<T>& a){
@@ -151,12 +149,10 @@ I remove_index(const I& mask, const I& ind)
 	return (before | after);
 }
 
-V get_set_from_mask(const V& cut, I mask)
+V get_set_from_mask(const V& cut, const I& mask, I end, I start = 0)
 {
 	V out;
-	I n = cut.size();
-	string s;
-	for(I i = 0; i < n; i++)
+	for(I i = start; i < end; i++)
 	{
 		if(mask & (1LL<<i))
 		{
@@ -169,34 +165,40 @@ V get_set_from_mask(const V& cut, I mask)
 // Returns cuv and cvu.
 // cvu is number of pairs i, j in permanent such that i < j, i neighbor of u and j neighbor of v.
 // i.e. c(u,v) is the number of crossings of (v, u)
-P count_crossings(I u, I v, const VV& graph, const V& index)
+I count_crossings(I u, I v, const VV& graph, const V& index)
 {
-	const V& a1 = graph[u];
-	const V& a2 = graph[v];
-	I n1 = a1.size();
-	I n2 = a2.size();
-	I common = 0;
-	I cuv = 0;
-	I cvu = 0;
-	for(I i = 0, j = 0; i < n1; i++)
+	static map<P,I> crossings;
+	if(crossings.find({u,v}) == crossings.end())
 	{
-		while(j < n2 && index[a2[j]] < index[a1[i]])
+		const V& a1 = graph[u];
+		const V& a2 = graph[v];
+		I n1 = a1.size();
+		I n2 = a2.size();
+		I common = 0;
+		I cuv = 0;
+		I cvu = 0;
+		for(I i = 0, j = 0; i < n1; i++)
 		{
-			j++;
-		}		
-		cuv += j;
-		cvu += (n2 - j); // assume first that current is larger
-		if(j < n2 && index[a2[j]] == index[a1[i]]) //subtract one if equal
-		{
-			common++;
-			cvu--;
+			while(j < n2 && index[a2[j]] < index[a1[i]])
+			{
+				j++;
+			}		
+			cuv += j;
+			cvu += (n2 - j); // assume first that current is larger
+			if(j < n2 && index[a2[j]] == index[a1[i]]) //subtract one if equal
+			{
+				common++;
+				cvu--;
+			}
 		}
+		assert(cuv + cvu + common == n1 * n2);
+		crossings[{u, v}] = cvu;
+		crossings[{v,u}] = cuv;
+#ifdef __DEBUG
+		cout << "Count crossings: " << u << " " << v << " " << crossings[P(u,v)] << " " << crossings[P(v,u)] << " " << common << endl;
+#endif
 	}
-// #ifdef __DEBUG
-// 	cout << "u: " << u + 1 << " v: " << v + 1 << " cuv: " << cuv << " cvu: " << cvu << " common: " << common << endl;
-// #endif
-	assert(cuv + cvu + common == n1 * n2);
-	return P(cuv, cvu);
+	return crossings[{u,v}];
 }
 
 // Counts crossings between S[i-1](MASK) and W, and between  W(MASK) and W\W(MASK)
@@ -216,14 +218,7 @@ I crossings_with_mask(const I& mask, const V& cut, const I& cut_size, I sep_inde
 		for(I j = sep_index; j < cut_size; j++)
 		{
 			I v = cut[j];
-			if(crossings.find({u,v}) == crossings.end())
-			{
-				P c = count_crossings(u,v, graph, index);
-				// swap left and right since c is defined as "well ordered paris".
-				crossings[{v, u}] = c.first;
-				crossings[{u, v}] = c.second;
-			}
-			ans += crossings[{u,v}];
+			ans += count_crossings(u,v, graph, index);
 		}
 	}
 
@@ -242,75 +237,69 @@ I crossings_with_mask(const I& mask, const V& cut, const I& cut_size, I sep_inde
 			}			
 			I u = cut[i];
 			I v = cut[j];
-			if(crossings.find({u,v}) == crossings.end())
-			{
-				P c = count_crossings(u,v, graph, index);
-				// swap left and right since c is defined as "well ordered paris".
-				crossings[{v, u}] = c.first;
-				crossings[{u, v}] = c.second;
-			}
-			ans += crossings[{u,v}];
+
+			ans += count_crossings(u,v, graph, index);
 		}
 	}
 	return ans;
 }
 
 // Use dynamic programming over subsets of new vertices (Hamiltonian cycle)
+V perm_DP;
 I best_permutation(const I& mask, const V& cut, const I& cut_size, const I& sep_index, const VV& graph, const V& index)
 {
-	V new_in_mask;
-	for(I i = sep_index; i < cut_size; i++)
+	V permutation_vertices = get_set_from_mask(cut, mask, cut_size, sep_index);
+	if(permutation_vertices.size() <= 1)
 	{
-		if((1LL<<i)& mask)
-		{
-			new_in_mask.push_back(cut[i]);
-		}
+		return 0;
 	}
-	I n = new_in_mask.size();
-	I m = count_masks((new_in_mask.size()));
-	V submasks;
-	map<I, I> dp;
-	for(I s = m; s != 0; s = (s-1)&m)
+#ifdef __DEBUG
+	cout << "permutation crossings:\nPermutation vertices: " << get_set_from_mask(cut, mask, cut_size, sep_index) << endl; 
+	cout << "first added index: " << sep_index << " cut size: " << cut_size << endl;
+	cout << "Permutation vertices: " <<  permutation_vertices << endl;
+#endif
+	I n = permutation_vertices.size();
+	I m = count_masks((permutation_vertices.size()));
+	if(perm_DP.size()<m)
 	{
-		submasks.push_back(s);
+		perm_DP.resize(m);
 	}
-	reverse(submasks.begin(), submasks.end());
-	for(I mask : submasks){
+	fill(perm_DP.begin(), perm_DP.begin()+m, INF);
+	for(I mask = 0; mask < m; mask++)
+	{
 		if(__builtin_popcountll(mask) == 1)
 		{
-			dp[mask] = 0;
+			perm_DP[mask] = 0;
 			continue;
 		}
-		dp[mask] = INF;
 		for(I i = 0; i < n; i++)
 		{
 			I bit = (1LL<<i);
-			I u = new_in_mask[i];
 			if(!(mask & bit))
 			{
 				continue;
 			}
-			I new_mask = mask ^ bit;
-			I cost = dp[new_mask];
+			I u = permutation_vertices[i];
+			I prev_mask = mask ^ bit;
+			I cost = perm_DP[prev_mask];
+			if(cost == INF)
+			{
+				continue;
+			}
 			for(I j = 0; j < n; j++)
 			{
-				if(i == j)
-				{
-					continue;
-				}
 				I bit2 = (1LL<<j);
-				if(!(mask & bit2))
+				if(!(prev_mask & bit2))
 				{
 					continue;
 				}
-				I w = new_in_mask[j];
-				P c = count_crossings(u, w, graph, index);
-				cost += c.first; // We put u after w so we count pairs with u's neighbors comes first
+				I w = permutation_vertices[j];
+				cost += count_crossings(u, w, graph, index);
 			}
-			dp[mask] = min(dp[mask], cost);	
+			perm_DP[mask] = min(perm_DP[mask], cost);	
 		}
 	}
-	return dp[m];
+	return perm_DP[m-1];
 }
 
 I add_indices_back(I mask, const V& removed_indices, I old_size)
@@ -427,7 +416,7 @@ void run_solver(const VV& graph, const V& arrangement, const V& index, const VP&
 #ifdef __DEBUG
 			for(I mask = 0; mask < count_masks(cut_size); mask++)
 			{
-				cout << "[" << get_set_from_mask(cut, mask) <<"]: " << sol[curr_par][mask] << endl;
+				cout << "[" << get_set_from_mask(cut, mask, cut_size) <<"]: " << sol[curr_par][mask] << endl;
 			}
 			cout << endl << endl;
 #endif
@@ -507,7 +496,7 @@ void run_solver(const VV& graph, const V& arrangement, const V& index, const VP&
 #ifdef __DEBUG
 		for(I mask = 0; mask < count_masks(cut_size); mask++)
 		{
-			cout << "[" << get_set_from_mask(cut, mask) <<"]: " << curr_sol[mask] << endl;
+			cout << "[" << get_set_from_mask(cut, mask, cut_size) <<"]: " << curr_sol[mask] << endl;
 		}
 		cout << endl << endl;
 #endif

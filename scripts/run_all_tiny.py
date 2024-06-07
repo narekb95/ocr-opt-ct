@@ -9,7 +9,7 @@ def get_all_instances(directory):
     return folder[2]
 
 # Verzeichnispfad, den Sie durchsuchen möchten
-directory = 'tiny'
+directory = 'instances/tiny'
 instances = get_all_instances(directory)
 all_data = []
 for instance in instances:
