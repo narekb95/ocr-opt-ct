@@ -369,7 +369,7 @@ void forget_vertices(VP& forget_data, V& cut, V& cut_mask, I& cut_size, const VV
 	transform(forget_data.begin(), forget_data.end(), forget_cut_indices.begin(), [](const P& p){return p.second;});
 #ifdef __DEBUG
 	cout << "Forget vertices: " << forget_vert << endl;
-	cout << "Forget indices: " << forget_cut_indices << endl;
+	cout << "Forget  indices: " << forget_cut_indices << endl;
 #endif
 	I new_size = cut_size - forget_size;
 	I total_masks_n = count_masks(cut_size);
@@ -433,6 +433,7 @@ void run_solver(const VV& graph, const V& arrangement, const V& index, const VP&
 		d_assert(ind == index[v]);
 		
 #ifdef __DEBUG
+		cout << "_______________________________________________________" << endl;
 		cout << "Cut index: " << ind << " Vertex: " << v << endl;
 		V cut_print;
 		cout << "Cut before processing: ";
