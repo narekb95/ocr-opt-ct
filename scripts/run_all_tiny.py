@@ -20,7 +20,7 @@ for instance in instances:
     verrify_arguments = ['pace2024verifier', input_file, sol_file, '--only-crossings']
     verrifier_sol = subprocess.run(verrify_arguments, stdout=subprocess.PIPE)
     verrifier_out = verrifier_sol.stdout.decode('utf8')[:-1]
-    mysol = subprocess.run(['./out', arrg_file],
+    mysol = subprocess.run(['./release', arrg_file],
                            stdout=subprocess.PIPE)
     my_out = mysol.stdout[:-1].decode('utf8')
     print(f'{verrifier_out:2} {my_out:2} {instance}')
