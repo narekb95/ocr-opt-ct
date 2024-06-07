@@ -297,32 +297,6 @@ void best_permutation(const V& permutation_vertices, const VV& graph, const V& i
 	}
 }
 
-I add_indices_back(I mask, const V& removed_indices, I old_size)
-{
-	if(removed_indices[0] == 0)
-	{
-		mask <<= 1;
-		mask |= 1;
-	}
-	I all_bits = count_masks(old_size) - 1;
-	I c = removed_indices.size();
-	for(I bit = 1, ind = 1, prev_bits = 1; bit < old_size; bit++)
-	{
-		if(ind < c && removed_indices[ind] == bit)
-		{
-			I otherbits = all_bits ^ prev_bits;
-			I small_mask = mask & prev_bits;
-			I big_mask = mask & otherbits;
-			big_mask = (big_mask << 1);
-			mask = small_mask | (1LL<<bit) | big_mask;
-			ind++;
-		}
-		prev_bits = ((prev_bits<<1) | 1);
-	}
-	return mask;
-}
-
-
 //assumes vertices have the same relative order in cut
 void remove_vertices_from_cut(const V& vertices, V& cut, I& cut_size)
 {
@@ -570,8 +544,6 @@ void run_solver(const VV& graph, const V& arrangement, const V& index, const VP&
 		best_permutation(cut, graph, index, prev_size, cut_size);
 
 		I old_bits = count_masks(prev_size) - 1;
-		// [TODO] this computes permutation for the same sets multiple times
-		// -> Precompute the dp table and access its values globally.
 		for(I mask = 0; mask < n_masks; mask++)
 		{
 			I old_mask = mask & old_bits;
@@ -702,11 +674,6 @@ int main(int argc, char* argv[])
 	// 	cout << testcut[i] << " ";
 	// }
 	// cout << endl;
-//
-// // Test add_indiced back (obsolete)
-// 	cout << 0b10111 << " " <<  add_indices_back(0b101, {0,2}, 5) << endl;
-// 	cout << 0b1101111 << " " <<  add_indices_back(0b1011, {0,1,6}, 7) << endl;
-// 	cout << 0b1001111 << " " <<  add_indices_back(0b11, {0,1,6}, 7) << endl;
 // #endif
 	string file = argv[1];
 	V arrangement;
