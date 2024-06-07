@@ -27,7 +27,7 @@ for file in files:
             line = ' '.join(line)
             output.write(line+'\n')
             lin_arrange = list(range(n1+n2))
-            shuffle(lin_arrange)
+            # shuffle(lin_arrange)
             for i in lin_arrange:
                 output.write(str(i+1)+'\n')
         else:

@@ -298,7 +298,7 @@ void best_permutation(const V& permutation_vertices, const VV& graph, const V& i
 }
 
 //assumes vertices have the same relative order in cut
-void remove_vertices_from_cut(const V& vertices, V& cut, I& cut_size)
+void remove_vertices_from_cut(const V& vertices, V& cut, I& cut_size, V& cut_mask)
 {
 	I new_cut_ind = 0;
 	I forget_ind = 0;
@@ -313,6 +313,11 @@ void remove_vertices_from_cut(const V& vertices, V& cut, I& cut_size)
 		cut[new_cut_ind++] = w;
 	}
 	cut_size =  new_cut_ind;
+	for(const auto& v : vertices)
+	{
+		assert(cut_mask[v] = 1);
+		cut_mask[v] = 0;
+	}
 }
 
 
@@ -423,7 +428,7 @@ void forget_vertices(VP& forget_data, V& cut, V& cut_mask, I& cut_size, const VV
 			+ forget_non_forget_edges_crosses);
 	}
 	// remove vertices from cut
-	remove_vertices_from_cut(forget_vert, cut, cut_size);
+	remove_vertices_from_cut(forget_vert, cut, cut_size, cut_mask);
 	assert(cut_size == new_size);
 }
 
