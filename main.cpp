@@ -80,12 +80,14 @@ PP read_input(V& arrangement, VV& graph, istream& in, bool with_arrangement = tr
 	I arrg_itr = 0;
 	while(getline(in, s))
 	{
-		if(s.size() <= 1)
+		if(s.size() == 0 || s[0] == '\n' || s[0] == '\r')
 		{
 			continue;
 		}
 		if(s[0] == 'c')
+		{
 			continue;
+		}
 		VS line;
 		split_line(s, line);
 		if(s[0] == 'p')
@@ -96,7 +98,7 @@ PP read_input(V& arrangement, VV& graph, istream& in, bool with_arrangement = tr
 			n1 = stoi(line[2]);
 			n2 = stoi(line[3]);
 			m = stoi(line[4]);
-			ctw = with_arrangement? stoi(line[5]) : n1*n2;
+			ctw = with_arrangement? stoi(line[5]) : m;
 			graph.assign(n1+n2, V());
 			arrangement.resize(n1 + n2);
 			// index.resize(n1+n2);
@@ -129,23 +131,22 @@ PP read_input(V& arrangement, VV& graph, istream& in, bool with_arrangement = tr
 
 
 
- void err(const string& err)
- {
+void err(const string& err)
+{
 #ifdef __DEBUG
- 	cout << "Error " << err << endl;
-	exit(-1);
-#else
-	while(true);
+cout << "Error " << err << endl;
 #endif
- }
- I count_masks(I size)
- {
+exit(-1);
+}
+
+I count_masks(I size)
+{
 	if(size > 63)
 	{
 		err("Too many vertices in cut");
 	}
 	return 1LL<<size;
- }
+}
 
 bool is_fixed_partition(const I& v, const PP& parameters)
 {
@@ -167,12 +168,12 @@ V get_set_from_mask(const V& cut, const I& mask, I end, I start = 0)
 
 inline void print_current_dp(const V& cut, const I& cut_size, const V& sol){
 #ifdef __DEBUG
-		cout << "Solutions:" << endl;
-		for(I mask = 0; mask < count_masks(cut_size); mask++)
-		{
-			cout << "[" << get_set_from_mask(cut, mask, cut_size) <<"]: " << sol[mask] << endl;
-		}
-		cout << endl << endl;
+	cout << "Solutions:" << endl;
+	for(I mask = 0; mask < count_masks(cut_size); mask++)
+	{
+		cout << "[" << get_set_from_mask(cut, mask, cut_size) <<"]: " << sol[mask] << endl;
+	}
+	cout << endl << endl;
 #endif
 }
 
@@ -713,9 +714,9 @@ int main(int argc, char* argv[])
 V arrangement;
 VV graph;
 
-#ifndef __LITE
-#define __LITE
-#endif
+// #ifndef __LITE
+// #define __LITE
+// #endif
 
 #ifdef __LITE
 	PP parameters = read_input(arrangement, graph, in, false);
