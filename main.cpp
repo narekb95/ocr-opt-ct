@@ -222,8 +222,8 @@ I crossings_with_mask(const I& mask, const V& cut, const I& cut_size, I sep_inde
 		}
 	}
 
-	// Between W(mask) and W(rest)
-	I Wm_Wr = 0;
+	// Between W(mask) and all non-mask
+	I Wm_R = 0;
 	for(I i = sep_index; i < cut_size; i++)
 	{
 		if(!((1LL<<i)&mask))
@@ -238,13 +238,12 @@ I crossings_with_mask(const I& mask, const V& cut, const I& cut_size, I sep_inde
 			}			
 			I u = cut[i];
 			I v = cut[j];
-
-			Wm_Wr += count_crossings(u,v, graph, index);
+			Wm_R += count_crossings(u,v, graph, index);
 		}
 	}
 	// cout << "S[mask]-W[all] crosses:  " << Sm_W << endl;
-	// cout << "W[mask]-W[rest] crosses: " << Wm_Wr << endl;
-	return Sm_W + Wm_Wr;
+	// cout << "W[mask]-rest crosses: " << Wm_R << endl;
+	return Sm_W + Wm_R;
 }
 
 V perm_DP;
@@ -557,15 +556,15 @@ void run_solver(const VV& graph, const V& arrangement, const V& index, const VP&
 			}
 			I added_mask = mask >> prev_size;
 			assert(added_mask < count_masks(cut_size - prev_size));
-// #ifdef __DEBUG
-// 			cout << "---" << endl;
-// 			cout << "Full mask: " << get_set_from_mask(cut, mask, cut_size) << endl;
-// 			cout << "Old mask: " << " [" << get_set_from_mask(cut, old_mask, cut_size) << "]" << endl;
-// 			I mask_crossings = crossings_with_mask(mask, cut, cut_size, prev_size, graph, index);
-// 			cout << "Last solution:" << last_sol[old_mask] << endl;
-// 			cout << "Crossings with mask: "<< mask_crossings <<endl;
-// 			cout << "Best permutation: " << perm_DP[added_mask];
-// #endif
+#ifdef __DEBUG
+			cout << "---" << endl;
+			cout << "Full mask: " << get_set_from_mask(cut, mask, cut_size) << endl;
+			cout << "Old mask: " << " [" << get_set_from_mask(cut, old_mask, cut_size) << "]" << endl;
+			I mask_crossings = crossings_with_mask(mask, cut, cut_size, prev_size, graph, index);
+			cout << "Last solution:" << last_sol[old_mask] << endl;
+			cout << "Crossings with mask: "<< mask_crossings <<endl;
+			cout << "Best permutation: " << perm_DP[added_mask] << endl;
+#endif
 			curr_sol[mask] = min(curr_sol[mask],
 				last_sol[old_mask]
 				+ crossings_with_mask(mask, cut, cut_size, prev_size, graph, index)
