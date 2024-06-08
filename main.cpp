@@ -199,58 +199,10 @@ I count_crossings(I u, I v, const VV& graph, const V& index)
 	return crossings[{u,v}];
 }
 
-// Counts crossings between S[i-1](MASK) and W, and between  W(MASK) and W\W(MASK)
-// Added vertices in Mask come after rest of mask 
-I crossings_with_mask(const I& mask, const V& cut, const I& cut_size, I sep_index, const VV& graph, const V& index)
-{
-	// Between S(mask) and W
-	I Sm_W = 0;
-	for(I i = 0 ; i < sep_index; i++)
-	{
-		if(!((1LL<<i)&mask))
-		{
-			continue;
-		}
-		I u = cut[i];
-		for(I j = sep_index; j < cut_size; j++)
-		{
-			I v = cut[j];
-			I c = count_crossings(u, v, graph, index);
-			Sm_W += c;
-		}
-	}
-
-	// Between W(mask) and all non-mask
-	I Wm_R = 0;
-	for(I i = sep_index; i < cut_size; i++)
-	{
-		if(!((1LL<<i)&mask))
-		{
-			continue;
-		}
-		for(I j = 0; j < cut_size; j++)
-		{
-			if((1LL<<j)&mask)
-			{
-				continue;
-			}			
-			I u = cut[i];
-			I v = cut[j];
-			Wm_R += count_crossings(u,v, graph, index);
-		}
-	}
-	// cout << "S[mask]-W[all] crosses:  " << Sm_W << endl;
-	// cout << "W[mask]-rest crosses: " << Wm_R << endl;
-	return Sm_W + Wm_R;
-}
-
 V perm_DP;
-void compute_best_permutation(const V& permutation_vertices, const VV& graph, const V& index, I start = 0, I end = INF)
+void compute_best_permutation(const V& permutation_vertices, const I& end, const VV& graph, const V& index)
 {
-	if(end == INF)
-	{
-		end = permutation_vertices.size();
-	}
+	I start = 0;
 	I n = end - start;
 	I m = count_masks(n);
 	if(perm_DP.size()<m)
@@ -387,7 +339,7 @@ void forget_vertices(VP& forget_data, V& cut, V& cut_mask, I& cut_size, const VV
 	}
 	fill(curr_sol.begin(), curr_sol.begin()+curr_size, INF); // new mask size
 
-	compute_best_permutation(cut, graph, index);
+	compute_best_permutation(cut, cut_size, graph, index);
 
 	I non_forget_bits = (total_masks_n - 1) ^ cut_forget_mask;
 	for(I non_forget_mask = non_forget_bits;; non_forget_mask = (non_forget_mask - 1) & non_forget_bits)
@@ -533,6 +485,7 @@ void run_solver(const VV& graph, const V& arrangement, const V& index, const VP&
 	assert(cut_size == 0);
 	I ans = sol[other_par][0]; // empty mask
 	cout << ans << endl;
+	assert(cut_size < parameters.second.second);
 }
 
 void remove_isolated_vertices(VV& graph, V& arrangement, V& old_ids, V& solution, PP& parameters)
