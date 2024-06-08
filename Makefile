@@ -7,7 +7,7 @@ out: main.cpp
 run: release
 	./scripts/test_solution.py
 
-frelease: main.cpp
+fre: main.cpp
 	g++ -std=c++14 -O2 -D__FILEIO -o fre main.cpp
 
 lite: main.cpp
