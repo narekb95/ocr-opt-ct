@@ -562,6 +562,7 @@ void remove_isolated_vertices(VV& graph, V& arrangement, V& old_ids, V& solution
 	V removed(n, 0);
 	V new_ids(n);
 	old_ids.clear();
+	I count_removed = 0;
 
 	VV newgraph;
 	for(I i = 0; i < n; i++)
@@ -573,6 +574,7 @@ void remove_isolated_vertices(VV& graph, V& arrangement, V& old_ids, V& solution
 				solution.push_back(i);
 			}
 			removed[i] = 1;
+			count_removed++;
 		}
 		else
 		{
@@ -602,6 +604,7 @@ void remove_isolated_vertices(VV& graph, V& arrangement, V& old_ids, V& solution
 	}
 	arrangement = move(new_arrangement);
 
+	assert(count_removed + graph.size() == n);
 	if(n1 > 0)
 	{
 		I last_fixed = n1 - 1;
@@ -615,7 +618,7 @@ void remove_isolated_vertices(VV& graph, V& arrangement, V& old_ids, V& solution
 		}
 		else
 		{
-			n1 = last_fixed + 1;
+			n1 = new_ids[last_fixed] + 1;
 		}
 	}
 	n = graph.size();
@@ -740,7 +743,6 @@ VV graph;
 	V sol_isolated_vertices;
 	V old_ids;
 	remove_isolated_vertices(graph, arrangement, old_ids, sol_isolated_vertices, parameters);
-
 	V index;
 	VP neighbor_range;
 	compute_index_and_sort(arrangement, index, graph, neighbor_range);
@@ -761,7 +763,10 @@ VV graph;
 #endif
 
 	VV cut_sol_masks, sol_back_pointer, cut_history;
+	// P bad_edge = {0,0};
 	run_solver(graph, arrangement, index, neighbor_range, parameters, cut_sol_masks, sol_back_pointer, cut_history);
+	// cout << "Bad edge (old): " << old_ids[bad_edge.first] + 1 << " " << old_ids[bad_edge.second] + 1 << endl;
+	// cout << "Bad edge (new):" << bad_edge.first + 1 << " " << bad_edge.second << endl;
 	V out_arr;
 	print_solution_backwards(cut_sol_masks, sol_back_pointer, cut_history, graph, index, out_arr);
 	for(auto& v : out_arr)
