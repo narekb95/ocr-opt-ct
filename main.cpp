@@ -341,6 +341,7 @@ void forget_vertices(VP& forget_data, V& cut, V& cut_mask, I& cut_size, const VV
 	
 	cut_history.push_back(V(cut_size));
 	copy(cut.begin(), cut.begin()+cut_size, cut_history.back().begin());
+	// cout << "Cut: " << cut_history.back() << endl;
 
 	I forget_size = forget_data.size();
 	I new_size = cut_size - forget_size;
@@ -432,7 +433,7 @@ void forget_vertices(VP& forget_data, V& cut, V& cut_mask, I& cut_size, const VV
 // Cut are non-fixed endpoints of cut edges 
 // Vertices are only forgotten when no right neighbors
 // Implication: No vertex is forgotten and reintroduced.
-void run_solver(const VV& graph, const V& arrangement, const V& index, const VP& neighbor_range,
+I run_solver(const VV& graph, const V& arrangement, const V& index, const VP& neighbor_range,
 		const PP& parameters, VV& cut_sol_masks, VV& sol_back_points, VV& cut_history)
 {
 	I n = graph.size();
@@ -526,9 +527,13 @@ void run_solver(const VV& graph, const V& arrangement, const V& index, const VP&
 #endif
 	}
 	assert(cut_size == 0);
-	// I ans = sol[other_par][0]; // empty mask
-	// cout << ans << endl;
 	assert(cut_size < parameters.second.second);
+
+	I ans = sol[other_par][0]; // empty mask
+#ifdef __DEBUG
+	cout << endl << "Optimaml crossings: " << ans << endl << endl;
+#endif
+	return ans;
 }
 
 void remove_isolated_vertices(VV& graph, V& arrangement, V& old_ids, V& solution, PP& parameters)
@@ -640,8 +645,11 @@ void print_solution_backwards(const VV& cut_sol_masks, const VV& sol_back_points
 			ordered_vertices[j] = permutation_last_vertex[perm_mask];
 			perm_mask = permutation_backtrack[perm_mask];
 		}
+		#ifdef __DEBUG
+		cout << "Batch: " << ordered_vertices << endl;
+		#endif
 
-		copy(vertices.begin(), vertices.end(), back_inserter(out));
+		copy(ordered_vertices.rbegin(), ordered_vertices.rend(), back_inserter(out));
 		mask = sol_back_points[i][mask];
 	}
 	reverse(out.begin(), out.end());
