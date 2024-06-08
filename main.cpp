@@ -510,6 +510,7 @@ I run_solver(const VV& graph, const V& arrangement, const V& index, const VP& ne
 			{
 				for(const auto& w : graph[v])
 				{
+					assert(!is_fixed_partition(w, parameters));
 					if(index[w] > ind && !cut_mask[w])
 					{
 						cut[cut_size++] = w;
@@ -567,7 +568,10 @@ void remove_isolated_vertices(VV& graph, V& arrangement, V& old_ids, V& solution
 	{
 		if(graph[i].empty())
 		{
-			solution.push_back(i);
+			if(i >= n1)
+			{
+				solution.push_back(i);
+			}
 			removed[i] = 1;
 		}
 		else
@@ -597,14 +601,22 @@ void remove_isolated_vertices(VV& graph, V& arrangement, V& old_ids, V& solution
 		}
 	}
 	arrangement = move(new_arrangement);
+
 	if(n1 > 0)
 	{
 		I last_fixed = n1 - 1;
-		while(removed[last_fixed])
+		while(last_fixed > 0 && removed[last_fixed])
 		{
 			last_fixed--;
 		}
-		n1 = last_fixed + 1;
+		if(last_fixed == 0 && removed[0])
+		{
+			n1 = 0;
+		}
+		else
+		{
+			n1 = last_fixed + 1;
+		}
 	}
 	n = graph.size();
 	n2 = n - n1;
@@ -725,16 +737,16 @@ VV graph;
 #endif
 	
 	// Remove isolated vertices
-	V solution;
+	V sol_isolated_vertices;
 	V old_ids;
-	remove_isolated_vertices(graph, arrangement, old_ids, solution, parameters);
+	remove_isolated_vertices(graph, arrangement, old_ids, sol_isolated_vertices, parameters);
 
 	V index;
 	VP neighbor_range;
 	compute_index_and_sort(arrangement, index, graph, neighbor_range);
 
 #ifdef __DEBUG
-	cout << "Solution: " << solution << endl;
+	cout << "Solution: " << sol_isolated_vertices << endl;
 	cout << "Old ids: " << old_ids << endl;
 	cout << "n1: " << parameters.first.first << " n2: " << parameters.first.second << endl;
 	cout << "Graph: " << endl;
@@ -754,9 +766,10 @@ VV graph;
 	print_solution_backwards(cut_sol_masks, sol_back_pointer, cut_history, graph, index, out_arr);
 	for(auto& v : out_arr)
 	{
+		assert(v >= parameters.first.first);
 		v = old_ids[v];
 	}
-	copy(solution.begin(), solution.end(), back_inserter(out_arr));
+	copy(sol_isolated_vertices.begin(), sol_isolated_vertices.end(), back_inserter(out_arr));
 	for(auto v : out_arr)
 	{
 		assert(v >= parameters.first.first);
