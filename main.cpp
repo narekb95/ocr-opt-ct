@@ -388,7 +388,6 @@ void forget_vertices(VP& forget_data, V& cut, V& cut_mask, I& cut_size, const VV
 		assert(forget_mask < forget_masks_n);
 		I forget_not_in_mask = (forget_masks_n-1) ^ forget_mask;
 
-		// TODO: add edges between non-mask forget vertices and non-mask non-forget vertices
 		I forget_non_forget_edges_crosses = 0;
 		for(I i = 0; i < forget_size; i++)
 		{
@@ -411,16 +410,16 @@ void forget_vertices(VP& forget_data, V& cut, V& cut_mask, I& cut_size, const VV
 				forget_non_forget_edges_crosses += count_crossings(u, w, graph, index);
 			}
 		}
-#ifdef __DEBUG
-		cout << "Mask:        " << get_set_from_mask(cut, mask, cut_size) << endl;
-		cout << "Forget mask: " << get_set_from_mask(forget_vert, forget_mask, forget_size) << endl;
-		cout << "Forget rest: " << get_set_from_mask(forget_vert, forget_not_in_mask, forget_size) << endl;
-		cout << "***" << endl;
-		cout << "Old sol cost: " << last_sol[mask] << endl;
-		cout << "Best perm cost: " << perm_DP[forget_not_in_mask] << endl;
-		cout << "Out-mask frgt to no-frgt cost: " << forget_non_forget_edges_crosses << endl;
-		cout << endl;
-#endif
+// #ifdef __DEBUG
+// 		cout << "Mask:        " << get_set_from_mask(cut, mask, cut_size) << endl;
+// 		cout << "Forget mask: " << get_set_from_mask(forget_vert, forget_mask, forget_size) << endl;
+// 		cout << "Forget rest: " << get_set_from_mask(forget_vert, forget_not_in_mask, forget_size) << endl;
+// 		cout << "***" << endl;
+// 		cout << "Old sol cost: " << last_sol[mask] << endl;
+// 		cout << "Best perm cost: " << perm_DP[forget_not_in_mask] << endl;
+// 		cout << "Out-mask frgt to no-frgt cost: " << forget_non_forget_edges_crosses << endl;
+// 		cout << endl;
+// #endif
 
 		curr_sol[left_mask] = min(curr_sol[left_mask],
 			last_sol[mask]
@@ -558,15 +557,15 @@ void run_solver(const VV& graph, const V& arrangement, const V& index, const VP&
 			}
 			I added_mask = mask >> prev_size;
 			assert(added_mask < count_masks(cut_size - prev_size));
-#ifdef __DEBUG
-			cout << "---" << endl;
-			cout << "Full mask: " << get_set_from_mask(cut, mask, cut_size) << endl;
-			cout << "Old mask: " << " [" << get_set_from_mask(cut, old_mask, cut_size) << "]" << endl;
-			I mask_crossings = crossings_with_mask(mask, cut, cut_size, prev_size, graph, index);
-			cout << "Last solution:" << last_sol[old_mask] << endl;
-			cout << "Crossings with mask: "<< mask_crossings <<endl;
-			cout << "Best permutation: " << perm_DP[added_mask];
-#endif
+// #ifdef __DEBUG
+// 			cout << "---" << endl;
+// 			cout << "Full mask: " << get_set_from_mask(cut, mask, cut_size) << endl;
+// 			cout << "Old mask: " << " [" << get_set_from_mask(cut, old_mask, cut_size) << "]" << endl;
+// 			I mask_crossings = crossings_with_mask(mask, cut, cut_size, prev_size, graph, index);
+// 			cout << "Last solution:" << last_sol[old_mask] << endl;
+// 			cout << "Crossings with mask: "<< mask_crossings <<endl;
+// 			cout << "Best permutation: " << perm_DP[added_mask];
+// #endif
 			curr_sol[mask] = min(curr_sol[mask],
 				last_sol[old_mask]
 				+ crossings_with_mask(mask, cut, cut_size, prev_size, graph, index)
