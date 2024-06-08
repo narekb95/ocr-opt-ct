@@ -115,12 +115,12 @@ PP read_input(const string& file, V& arrangement, VV& graph)
 
  void err(const string& err)
  {
-// #ifdef __DEBUG
- 	// cout << "Error " << err << endl;
+#ifdef __DEBUG
+ 	cout << "Error " << err << endl;
 	exit(-1);
-// #else
-	// while(true);
-// #endif
+#else
+	while(true);
+#endif
  }
  I count_masks(I size)
  {
