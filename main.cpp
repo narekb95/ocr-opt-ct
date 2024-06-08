@@ -759,6 +759,7 @@ VV graph;
 	copy(solution.begin(), solution.end(), back_inserter(out_arr));
 	for(auto v : out_arr)
 	{
+		assert(v >= parameters.first.first);
 		out << v+1 << endl;
 	}
 	return 0;
