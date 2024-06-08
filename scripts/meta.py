@@ -9,7 +9,7 @@ def list_files(directory):
     return file_names
 
 # Verzeichnispfad, den Sie durchsuchen möchten
-directory = 'data'
+directory = 'instances/public'
 files = list_files(directory)
 all_data = []
 for file in files:

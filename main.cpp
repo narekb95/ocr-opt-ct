@@ -149,7 +149,7 @@ V get_set_from_mask(const V& cut, const I& mask, I end, I start = 0)
 	return out;
 }
 
-void print_current_dp(const V& cut, const I& cut_size, const V& sol){
+inline void print_current_dp(const V& cut, const I& cut_size, const V& sol){
 #ifdef __DEBUG
 		cout << "Solutions:" << endl;
 		for(I mask = 0; mask < count_masks(cut_size); mask++)
@@ -200,7 +200,9 @@ I count_crossings(I u, I v, const VV& graph, const V& index)
 }
 
 V perm_DP;
-void compute_best_permutation(const V& permutation_vertices, const I& end, const VV& graph, const V& index)
+V permutation_backtrack;
+V permutation_last_vertex;
+void compute_best_permutation(const V& permutation_vertices, const I& end, const VV& graph, const V& index, bool with_backtrack = false)
 {
 	I start = 0;
 	I n = end - start;
@@ -208,6 +210,8 @@ void compute_best_permutation(const V& permutation_vertices, const I& end, const
 	if(perm_DP.size()<m)
 	{
 		perm_DP.resize(m);
+		permutation_backtrack.resize(m);
+		permutation_last_vertex.resize(m);
 	}
 	fill(perm_DP.begin(), perm_DP.begin()+m, INF);
 	for(I mask = 0; mask < m; mask++)
@@ -215,6 +219,18 @@ void compute_best_permutation(const V& permutation_vertices, const I& end, const
 		if(__builtin_popcountll(mask) <= 1)
 		{
 			perm_DP[mask] = 0;
+			if(with_backtrack)
+			{
+				permutation_backtrack[mask] = 0;
+				for(I i = 0; i < n; i++)
+				{
+					if(mask & (1LL<<i))
+					{
+						permutation_last_vertex[mask] = permutation_vertices[start + i];
+						break;
+					}
+				}
+			}
 			continue;
 		}
 		for(I i = 0; i < n; i++)
@@ -241,7 +257,15 @@ void compute_best_permutation(const V& permutation_vertices, const I& end, const
 				I w = permutation_vertices[start + j];
 				cost += count_crossings(u, w, graph, index);
 			}
-			perm_DP[mask] = min(perm_DP[mask], cost);	
+			if(cost < perm_DP[mask])
+			{
+				perm_DP[mask] = cost;
+				if(with_backtrack)
+				{
+					permutation_backtrack[mask] = prev_mask;
+					permutation_last_vertex[mask] = u;
+				}
+			}
 		}
 	}
 }
@@ -307,9 +331,17 @@ I remove_bits_from_mask(I mask, I remove, I n_bits)
 // For each subset, try subset in mask and find best permutation over rest
 // Since dp[subset] is local over vertices in the subset, can reuse values.
 // i.e. first compute dp for the whole set and then try all subsets in mask 
+
+// sol is indexed by after-forgetting
+// by cut_history and sol_vertices values from current cut (index corresp to after-forgetting but value to before)
 void forget_vertices(VP& forget_data, V& cut, V& cut_mask, I& cut_size, const VV& graph, const V& index,
-		V& curr_sol, I& curr_size, const V& last_sol, const I& last_size)
+		V& curr_sol, I& curr_size, const V& last_sol, const I& last_size,
+		VV& cut_sol_masks, VV& sol_back_pointer, VV& cut_history)
 {
+	
+	cut_history.push_back(V(cut_size));
+	copy(cut.begin(), cut.begin()+cut_size, cut_history.back().begin());
+
 	I forget_size = forget_data.size();
 	I new_size = cut_size - forget_size;
 
@@ -338,6 +370,8 @@ void forget_vertices(VP& forget_data, V& cut, V& cut_mask, I& cut_size, const VV
 		curr_sol.resize(curr_size);
 	}
 	fill(curr_sol.begin(), curr_sol.begin()+curr_size, INF); // new mask size
+	cut_sol_masks.push_back(V(curr_size));
+	sol_back_pointer.push_back(V(curr_size));
 
 	compute_best_permutation(cut, cut_size, graph, index);
 
@@ -371,12 +405,21 @@ void forget_vertices(VP& forget_data, V& cut, V& cut_mask, I& cut_size, const VV
 			// [TODO] not mask but updated mask
 			I output_mask = remove_bits_from_mask(mask, cut_forget_mask, cut_size);
 			assert(output_mask < curr_size);
-			curr_sol[output_mask] = min(curr_sol[output_mask], cost);
+			if(curr_sol[output_mask] > cost)
+			{
+				// index output-mask but value is mask
+				curr_sol[output_mask] = cost;
+				cut_sol_masks.back()[output_mask] = suffix_mask;
+				sol_back_pointer.back()[output_mask] = prev_mask;
+			}
+
+			// end loop here to go over all and none
 			if(prev_mask == 0)
 			{
 				break;
 			}
 		}
+		// end loop here to go over all and none
 		if(non_forget_mask == 0)
 		{
 			break;
@@ -389,7 +432,8 @@ void forget_vertices(VP& forget_data, V& cut, V& cut_mask, I& cut_size, const VV
 // Cut are non-fixed endpoints of cut edges 
 // Vertices are only forgotten when no right neighbors
 // Implication: No vertex is forgotten and reintroduced.
-void run_solver(const VV& graph, const V& arrangement, const V& index, const VP& neighbor_range, const PP& parameters)
+void run_solver(const VV& graph, const V& arrangement, const V& index, const VP& neighbor_range,
+		const PP& parameters, VV& cut_sol_masks, VV& sol_back_points, VV& cut_history)
 {
 	I n = graph.size();
 	V sol[2] = {V(), V(1, 0)};
@@ -429,13 +473,12 @@ void run_solver(const VV& graph, const V& arrangement, const V& index, const VP&
 		}
 		if(!forget_vert.empty())
 		{
-			forget_vertices(forget_vert, cut, cut_mask, cut_size, graph, index, sol[curr_par], sol_size[curr_par], sol[other_par], sol_size[other_par]);
+			debug("Calling forget.");
+			forget_vertices(forget_vert, cut, cut_mask, cut_size, graph, index,
+				sol[curr_par], sol_size[curr_par], sol[other_par], sol_size[other_par],
+				cut_sol_masks, sol_back_points, cut_history);
 			print_current_dp(cut, cut_size, sol[curr_par]);
 			swap(curr_par, other_par);
-		}
-		else
-		{
-			debug("No forget vertices.");
 		}
 
 		// Introduce v or its right neighbors if it has right neighbors
@@ -483,8 +526,8 @@ void run_solver(const VV& graph, const V& arrangement, const V& index, const VP&
 #endif
 	}
 	assert(cut_size == 0);
-	I ans = sol[other_par][0]; // empty mask
-	cout << ans << endl;
+	// I ans = sol[other_par][0]; // empty mask
+	// cout << ans << endl;
 	assert(cut_size < parameters.second.second);
 }
 
@@ -565,6 +608,46 @@ void compute_index_and_sort(const V& arrangement, V& index, VV& graph, VP& neigh
 	});
 }
 
+void print_solution_backwards(const VV& cut_sol_masks, const VV& sol_back_points, const VV& cut_history,
+		const VV& graph, const V& index, V& out)
+{
+#ifdef __DEBUG
+
+	cout << "Cut history: " << cut_history.size() << endl;;
+	for(const auto& v : cut_history)
+	{
+		cout << v << endl;
+	}
+	cout << endl;
+	cout << "Solutions masks: " << cut_sol_masks.size() << endl;
+	for(const auto& v : cut_sol_masks)
+	{
+		cout << v << endl;
+	}
+	cout << endl;
+#endif
+
+	I n = cut_sol_masks.size();
+	for(long long int  i = n-1, mask = 0; i >= 0; i--)
+	{
+		I sol = cut_sol_masks[i][mask];
+
+		V vertices = get_set_from_mask(cut_history[i], sol, cut_history[i].size());
+		compute_best_permutation(vertices, vertices.size(), graph, index, true);
+		V ordered_vertices(vertices.size());
+		for(I j = 0, perm_mask = count_masks(vertices.size()) - 1; j < vertices.size(); j++)
+		{
+			ordered_vertices[j] = permutation_last_vertex[perm_mask];
+			perm_mask = permutation_backtrack[perm_mask];
+		}
+
+		copy(vertices.begin(), vertices.end(), back_inserter(out));
+		mask = sol_back_points[i][mask];
+	}
+	reverse(out.begin(), out.end());
+}
+
+
 int main(int argc, char* argv[])
 {
 	ios_base::sync_with_stdio(0);
@@ -619,6 +702,18 @@ int main(int argc, char* argv[])
 	cout << "Neighbor range: " << neighbor_range << endl << endl << endl;
 #endif
 
-	run_solver(graph, arrangement, index, neighbor_range, parameters);
+	VV cut_sol_masks, sol_back_pointer, cut_history;
+	run_solver(graph, arrangement, index, neighbor_range, parameters, cut_sol_masks, sol_back_pointer, cut_history);
+	V out;
+	print_solution_backwards(cut_sol_masks, sol_back_pointer, cut_history, graph, index, out);
+	for(auto& v : out)
+	{
+		v = old_ids[v];
+	}
+	copy(solution.begin(), solution.end(), back_inserter(out));
+	for(auto v : out)
+	{
+		cout << v+1 << endl;
+	}
 	return 0;
 }
