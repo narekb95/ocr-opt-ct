@@ -1,5 +1,12 @@
-#include<bits/stdc++.h>
+#include<iterator>
+#include<vector>
+#include<iostream>
+#include<map>
+#include<bitset>
 #include<fstream>
+#include<cassert>
+#include<numeric>
+#include<algorithm>
 using namespace std;
 
 using I = unsigned long long int;
@@ -64,16 +71,19 @@ void split_line(const string& str, VS& line)
 // Arrangement: is the linear arrangement as given in input
 // Index: is the index of each vertex in the linear arrangement
 // Graph: adj lists
-PP read_input(const string& file, V& arrangement, VV& graph)
+PP read_input(V& arrangement, VV& graph, istream& in, bool with_arrangement = true)
 {
-	ifstream fin(file);
 	I n1, n2, m, ctw;
 	string s;
 
 	I first_line = 0;
 	I arrg_itr = 0;
-	while(getline(fin, s))
+	while(getline(in, s))
 	{
+		if(s.size() <= 1)
+		{
+			continue;
+		}
 		if(s[0] == 'c')
 			continue;
 		VS line;
@@ -86,20 +96,22 @@ PP read_input(const string& file, V& arrangement, VV& graph)
 			n1 = stoi(line[2]);
 			n2 = stoi(line[3]);
 			m = stoi(line[4]);
-			ctw = stoi(line[5]);
+			ctw = with_arrangement? stoi(line[5]) : n1*n2;
 			graph.assign(n1+n2, V());
 			arrangement.resize(n1 + n2);
 			// index.resize(n1+n2);
 			continue;
 		}
 		assert(first_line);
-		if(arrg_itr < n1+ n2)
+		if(with_arrangement)
 		{
-			assert(line.size() == 1);
-			arrangement[arrg_itr] = stoi(line[0]) - 1;
-			// index[arrangement[arrg_itr]] = arrg_itr;
-			arrg_itr++;
-			continue;
+			if(arrg_itr < n1+ n2)
+			{
+				assert(line.size() == 1);
+				arrangement[arrg_itr] = stoi(line[0]) - 1;
+				arrg_itr++;
+				continue;
+			}
 		}
 		assert(line.size() == 2);
 		I x, y;
@@ -107,6 +119,10 @@ PP read_input(const string& file, V& arrangement, VV& graph)
 		y = stoi(line[1]) - 1;
 		graph[x].push_back(y);
 		graph[y].push_back(x);		
+	}
+	if(!with_arrangement)
+	{
+		iota(arrangement.begin(), arrangement.end(), 0);
 	}
 	return PP(P(n1, n2), P(m, ctw));
 }
@@ -546,7 +562,7 @@ void remove_isolated_vertices(VV& graph, V& arrangement, V& old_ids, V& solution
 	old_ids.clear();
 
 	VV newgraph;
-	for(uint i = 0; i < n; i++)
+	for(I i = 0; i < n; i++)
 	{
 		if(graph[i].empty())
 		{
@@ -681,10 +697,31 @@ int main(int argc, char* argv[])
 	// bitset<10> b1(ans);
 	// cout << expect << " " << b1 << endl;
 // #endif
-	string file = argv[1];
-	V arrangement;
-	VV graph;
-	PP parameters = read_input(file, arrangement, graph);
+
+#ifdef __FILEIO
+	string in_file = argv[1];
+	string out_file = argv[2];
+	ifstream fin(in_file);
+	ofstream fout(out_file);
+	istream& in = fin;
+	ostream& out = fout;
+#else
+	istream& in = cin;
+	ostream& out = cout;
+#endif
+
+V arrangement;
+VV graph;
+
+#ifndef __LITE
+#define __LITE
+#endif
+
+#ifdef __LITE
+	PP parameters = read_input(arrangement, graph, in, false);
+#else
+	PP parameters = read_input(arrangement, graph, in);
+#endif
 	
 	// Remove isolated vertices
 	V solution;
@@ -712,16 +749,16 @@ int main(int argc, char* argv[])
 
 	VV cut_sol_masks, sol_back_pointer, cut_history;
 	run_solver(graph, arrangement, index, neighbor_range, parameters, cut_sol_masks, sol_back_pointer, cut_history);
-	V out;
-	print_solution_backwards(cut_sol_masks, sol_back_pointer, cut_history, graph, index, out);
-	for(auto& v : out)
+	V out_arr;
+	print_solution_backwards(cut_sol_masks, sol_back_pointer, cut_history, graph, index, out_arr);
+	for(auto& v : out_arr)
 	{
 		v = old_ids[v];
 	}
-	copy(solution.begin(), solution.end(), back_inserter(out));
-	for(auto v : out)
+	copy(solution.begin(), solution.end(), back_inserter(out_arr));
+	for(auto v : out_arr)
 	{
-		cout << v+1 << endl;
+		out << v+1 << endl;
 	}
 	return 0;
 }

@@ -6,3 +6,6 @@ run: release
 	
 release: main.cpp
 	g++ -std=c++14 -O2 -o release main.cpp
+
+lite: main.cpp
+	g++ -std=c++14 -D__LITE -O2 -o lite main.cpp
