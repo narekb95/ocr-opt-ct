@@ -569,7 +569,7 @@ void compute_best_permutation(const V& permutation_vertices, const I& end,
 					continue;
 				}
 				I w = permutation_vertices[start + j];
-				cost += count_crossings(u, w, graph, index); // TODO why is u before w?
+				cost += count_crossings(w, u, graph, index); // TODO why is u before w?
 			}
 			if(!perm_DP.count(mask) || cost < perm_DP[mask])
 			{
@@ -755,8 +755,6 @@ I run_solver(const VV& graph, const V& arrangement, const V& index, const VP& ne
 				cut_sol_masks, sol_back_points, cut_history, parameters, upper_bound);
 			if(sol[curr_par].size() == 0)
 			{
-				debug("no solutions left");
-				exit(-1);
 				return false;
 			}
 			print_current_dp(cut, cut_size, sol[curr_par]);
@@ -814,7 +812,7 @@ I run_solver(const VV& graph, const V& arrangement, const V& index, const VP& ne
 #endif
 	}
 	assert(cut_size == 0);
-	assert(cut_size < parameters.second.second);
+	assert(cut_size < parameters.second.second + 1);
 
 	I ans = sol[other_par][0]; // empty mask
 #ifdef __DEBUG
@@ -859,7 +857,7 @@ void print_solution_backwards(const VM& cut_sol_masks, const VM& sol_back_points
 		cout << "Batch: " << ordered_vertices << endl;
 		#endif
 
-		copy(ordered_vertices.rbegin(), ordered_vertices.rend(), back_inserter(out));
+		copy(ordered_vertices.begin(), ordered_vertices.end(), back_inserter(out));
 		auto back_it = sol_back_points[i].find(mask);
 		assert(back_it != sol_back_points[i].end());
 		mask = back_it->second;
