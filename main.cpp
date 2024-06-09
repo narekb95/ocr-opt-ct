@@ -21,6 +21,8 @@ using VS = vector<string>;
 using VV = vector<V>;
 using VVP = vector<VP>;
 
+using VM = vector<map<I, I>>;
+
 constexpr I N = 20000;
 constexpr I INF = I(-1);
 
@@ -194,6 +196,7 @@ I remove_bits_from_mask(I mask, I remove, I n_bits)
 
 map<P, I> committed;
 // returns the smaller vertex if commited, or inf otherwise
+// TODO: same neighborhood
 inline I committed_order(I u, I v, const VP& range)
 {
 	if(u > v)
@@ -203,7 +206,6 @@ inline I committed_order(I u, I v, const VP& range)
 	auto it = committed.find(P{u, v});
 	if(it != committed.end())
 	{
-		cout << "found committed" << endl;
 		return it->second;
 	}
 	
@@ -382,24 +384,30 @@ void compute_lower_bounds(const VP& neighbor_range, const PP& parameters, const 
 	intro_order.resize(n);
 	iota(intro_order.begin(), intro_order.end(), n1);
 	sort(intro_order.begin(), intro_order.end(), [&](const I& x, const I& y){
-		return neighbor_range[x].first < neighbor_range[y].first;
+		return min(index[x], neighbor_range[x].first) < min(index[y], neighbor_range[y].first);
 	});
 	
 	suffix_lower_bound.assign(n, 0);
 	for(long long int i = n-1; i >= 0; i--)
 	{
 		I u = intro_order[i];
-		suffix_lower_bound[i] = suffix_lower_bound[i+1];
+		assert(i >= 0);
+		suffix_lower_bound[i] = (I(i) < n-1 ? suffix_lower_bound[i+1] : 0);
 		for(I j = i + 1; j < n; j++)
 		{
 			I v = intro_order[j];
-			// All vertices afterwards have possibly smaller index than v but not that its introduce index
-			if(neighbor_range[u].second < neighbor_range[v].first)
+			// rang.first of each vertex following is larger than this value
+			if(neighbor_range[u].second <= min(index[v], neighbor_range[v].first))
 			{
 				break;
 			}
+			// if v has order but large first neighbor, later vertices can have smaller first neighbor
+			if(neighbor_range[u].second <= neighbor_range[v].first)
+			{
+				continue;
+			}
 			// u is neighbor of v
-			suffix_lower_bound[u] += min(count_crossings(u, v, graph, index), count_crossings(v, u, graph, index));
+			suffix_lower_bound[i] += min(count_crossings(u, v, graph, index), count_crossings(v, u, graph, index));
 		}
 	}
 }
@@ -419,31 +427,33 @@ I compute_lb_set_to_unintro(const V& cut, const I& cut_size, const VV& graph, co
 		}
 	}
 #ifdef __DEBUG
-	cout << "LB cut to right: [" << cut << "]: " << ans << endl;
+	cout << "LB cut to right for cut [" << get_set_from_mask(cut, count_masks(cut_size) -1, cut_size) << "]: " << ans << endl;
 #endif
 	return ans;
 }
 
 V valid_masks;
 I n_valid_masks;
-void generate_valid_submasks(I mask, I ind, const I& alive_bits, const V& cut, const I& cut_size,
-		const VP& neighbor_range, const I& forced_mask)
+void generate_valid_submasks(I mask, I ind, const I& alive_bits, const V& cut,
+			const I& cut_size, const VP& neighbor_range, const I& forced_mask)
 {
-	if(ind == cut.size())
+	if(ind == cut_size)
 	{
 		valid_masks[n_valid_masks++] = mask;
 		return;
 	}
 
-	if(!(alive_bits & (1LL<<ind)))
+	I curr_bit = 1LL<<ind;
+	I u = cut[ind];
+
+	if(!(alive_bits & curr_bit))
 	{
 		generate_valid_submasks(mask, ind+1, alive_bits, cut, cut_size, neighbor_range, forced_mask);
 		return;
 	}
 
-	I u = cut[ind];
 	bool can_add = true;
-	bool can_rem = (forced_mask & (1LL<<ind));
+	bool can_rem = !(forced_mask & curr_bit);
 	for(I i = 0; i < ind; i++)
 	{
 		if(!(alive_bits & (1LL<<i)))
@@ -462,20 +472,24 @@ void generate_valid_submasks(I mask, I ind, const I& alive_bits, const V& cut, c
 		}
 	}
 	I bit = 1LL<<ind;
-	if(can_add)
-	{
-		generate_valid_submasks(mask | bit, ind+1, alive_bits, cut, cut_size, neighbor_range, forced_mask);
-	}
+	// Remove first returns order where subsets appear before sets
 	if(can_rem)
 	{
 		generate_valid_submasks(mask, ind+1, alive_bits, cut, cut_size, neighbor_range, forced_mask);
 	}
+	if(can_add)
+	{
+		generate_valid_submasks(mask | bit, ind+1, alive_bits, cut, cut_size, neighbor_range, forced_mask);
+	}
 }
 
-void get_valid_submasks(const I& alive_bits, const V& cut, const I& cut_size,
-		const VP& neighbor_range, I forced_mask = 0)
+void get_valid_submasks(const I& alive_bits, const V& cut, const I& cut_size, const VP& neighbor_range, I forced_mask = 0)
 {
 		n_valid_masks = 0;
+		if(valid_masks.size() < count_masks(cut_size))
+		{
+			valid_masks.resize(count_masks(cut_size));
+		}
 		generate_valid_submasks(0, 0, alive_bits, cut, cut_size, neighbor_range, forced_mask);
 }
 
@@ -509,6 +523,7 @@ void compute_best_permutation(const V& permutation_vertices, const I& end,
 	assert(end <= 63);
 	I bits = ((count_masks(n) - 1) << start);
 	get_valid_submasks(bits, permutation_vertices, end, neighbor_range);
+
 	for(I mask_ind = 0; mask_ind < n_valid_masks; mask_ind++)
 	{
 
@@ -577,14 +592,12 @@ void compute_best_permutation(const V& permutation_vertices, const I& end,
 // by cut_history and sol_vertices values from current cut (index corresp to after-forgetting but value to before)
 // Since between iterations we only insert vertices, previous masks are still valid for the new cut
 void forget_vertices(VP& forget_data, V& cut, I& cut_size, const VV& graph, const V& index, const VP& neighbor_range,
-		map<I, I>& curr_sol, I& curr_size, const map<I, I>& last_sol, const I& last_size,
-		VV& cut_sol_masks, VV& sol_back_pointer, VV& cut_history, const PP& parameters, I upperbound)
+		map<I, I>& curr_sol, const map<I, I>& last_sol, VM& cut_sol_masks, VM& sol_back_pointer, VV& cut_history, const PP& parameters, I upper_bound)
 {
-	I cut_lower_bound = first_unintroduced <= parameters.first.first ? suffix_lower_bound[first_unintroduced] : 0;
+	I post_cut_lower_bound = first_unintroduced <= parameters.first.first ? suffix_lower_bound[first_unintroduced] : 0;
 	
 	cut_history.push_back(V(cut_size));
 	copy(cut.begin(), cut.begin()+cut_size, cut_history.back().begin());
-	// cout << "Cut: " << cut_history.back() << endl;
 
 	I forget_size = forget_data.size();
 
@@ -600,7 +613,7 @@ void forget_vertices(VP& forget_data, V& cut, I& cut_size, const VV& graph, cons
 	}
 
 #ifdef __DEBUG
-	cout << "Forget vertices: " << forget_vert << endl;
+	cout << "Forget vertices: " << get_set_from_mask(cut, cut_forget_mask, cut_size) << endl;
 	cout << "Forget indices:  " << forget_cut_indices << endl;
 	cout << endl;
 #endif
@@ -609,26 +622,42 @@ void forget_vertices(VP& forget_data, V& cut, I& cut_size, const VV& graph, cons
 	I total_bits = total_masks_n - 1;
 
 	curr_sol.clear();
-	cut_sol_masks.push_back(V(curr_size));
-	sol_back_pointer.push_back(V(curr_size));
+	cut_sol_masks.push_back(map<I,I>());
+	sol_back_pointer.push_back(map<I,I>());
 
+	debug("Computing best permutation");
 	compute_best_permutation(cut, cut_size, graph, index, neighbor_range);
-
-	if(valid_masks.size() < count_masks(cut_size))
+	
+#ifdef __DEBUG
+	cout << "Valid DP CUT subsets: ";
+	for(const auto& it : perm_DP)
 	{
-		valid_masks.resize(count_masks(cut_size));
+		cout << "([" << get_set_from_mask(cut, it.first, cut_size) << "]: " << it.second << "), ";
 	}
+	cout << endl;
+#endif
 
 	for(const auto& it : last_sol)
 	{
 		const I& prev_mask = it.first;
 		const I& prev_cost = it.second;
-		assert((total_bits & prev_mask) == prev_mask);
 		I left_bits = total_bits ^ prev_mask;
+		assert((total_bits & prev_mask) == prev_mask);
+#ifdef __DEBUG
+			cout << "-----" << endl;
+			cout << "Rec. sol set: " << get_set_from_mask(cut, prev_mask, cut_size) << endl;
+			cout << "Rest of cut: " << get_set_from_mask(cut, left_bits, cut_size) << endl;
+#endif
 		get_valid_submasks(left_bits, cut, cut_size, neighbor_range, cut_forget_mask);
 		for(I mask_ind = 0; mask_ind < n_valid_masks; mask_ind++)
 		{
 			I suffix_mask = valid_masks[mask_ind];
+#ifdef __DEBUG
+			cout << "Suffix mask: " << get_set_from_mask(cut, suffix_mask, cut_size) << endl;
+#endif
+			I mask = prev_mask | suffix_mask;
+			assert((total_bits & mask) == mask);
+			assert((cut_forget_mask & mask) == cut_forget_mask);
 
 			auto perm_it = perm_DP.find(suffix_mask);
 			if(perm_it == perm_DP.end()) // no permutation for this set
@@ -636,86 +665,39 @@ void forget_vertices(VP& forget_data, V& cut, I& cut_size, const VV& graph, cons
 				continue;
 			}
 			I suffix_cost = perm_it->second;
-
-			I mask = prev_mask | suffix_mask;
-			assert((total_bits & mask) == mask);
-			assert((cut_forget_mask & mask) == cut_forget_mask);
 			I anti_mask = total_bits ^ mask;
 
 			I prev_to_suffix_cost =  two_masks_crossings(prev_mask, suffix_mask, cut, cut_size, graph, index);
 			I forget_to_non_mask = two_masks_crossings(cut_forget_mask, anti_mask, cut, cut_size, graph, index);
 
 			I cost = prev_cost + suffix_cost + prev_to_suffix_cost + forget_to_non_mask;
+			I output_mask = remove_bits_from_mask(mask, cut_forget_mask, cut_size);
 
 			I lb_no_forget_to_rest = compute_lb_set_to_unintro(cut, cut_size, graph, index);
-			if(cost + cut_lower_bound + lb_no_forget_to_rest > upperbound) // [TODO] + minimum cost in antimask from from cut to right of cut?
-				continue;
-			if(curr_sol[mask] > cost)
-			{
-				curr_sol[mask] = cost;
-				cut_sol_masks.back()[mask] = mask;
-				sol_back_pointer.back()[mask] = prev_mask;
-			}
-		}
-	}
-
-	I non_forget_bits = (total_masks_n - 1) ^ cut_forget_mask;
-	for(I non_forget_mask = non_forget_bits;; non_forget_mask = (non_forget_mask - 1) & non_forget_bits)
-	{
-		I mask = non_forget_mask | cut_forget_mask;
-		I anti_mask = (total_masks_n - 1) ^ mask;
-		for(I prev_mask = mask;; prev_mask = (prev_mask-1)&mask) // mask that was already in solution
-		{
-			I suffix_mask = mask ^ prev_mask;
-			auto last_it = last_sol.find(prev_mask);
-			if(last_it == last_sol.end())
-			{
-				continue;
-			}
-			I prev_cost = last_it->second;
-			
-			auto perm_it = perm_DP.find(suffix_mask);
-			if(perm_it == perm_DP.end())
-			{
-				continue;
-			}
-			I suffix_cost = perm_it->second;
-			I prev_to_suffix_cost =  two_masks_crossings(prev_mask, suffix_mask, cut, cut_size, graph, index);
-			I forget_to_non_mask = two_masks_crossings(cut_forget_mask, anti_mask, cut, cut_size, graph, index);
-			// left is non_forget to non_mask but will be added when either forgotten 
 #ifdef __DEBUG
-			cout << "-----" << endl;
 			cout << "Mask set: " << get_set_from_mask(cut, mask, cut_size) << endl;
-			cout << "Recursion set: " << get_set_from_mask(cut, prev_mask, cut_size) << endl;
 			cout << "DP cost: " << prev_cost << endl;
 			cout << "Permutation cost: " << suffix_cost << endl;
 			cout <<  "Previous to suffix: " << prev_to_suffix_cost << endl;
 			cout << "Forget to non-mask: " << forget_to_non_mask << endl;
 #endif
-			I cost = prev_cost + suffix_cost + prev_to_suffix_cost + forget_to_non_mask;
-			// [TODO] not mask but updated mask
-			I output_mask = remove_bits_from_mask(mask, cut_forget_mask, cut_size);
-			assert(output_mask < curr_size);
-			if(curr_sol[output_mask] > cost)
+			
+			if(cost + post_cut_lower_bound + lb_no_forget_to_rest > upper_bound) // [TODO] + minimum cost in antimask from from cut to right of cut?
 			{
-				// index output-mask but value is mask
+				continue;
+			}
+			if(!curr_sol.count(output_mask) || curr_sol[output_mask] > cost)
+			{
 				curr_sol[output_mask] = cost;
-				cut_sol_masks.back()[output_mask] = suffix_mask;
+				cut_sol_masks.back()[output_mask] = mask;
 				sol_back_pointer.back()[output_mask] = prev_mask;
 			}
-
-			// end loop here to go over all and none
-			if(prev_mask == 0)
-			{
-				break;
-			}
-		}
-		// end loop here to go over all and none
-		if(non_forget_mask == 0)
-		{
-			break;
 		}
 	}
+
+
+
+
 	// remove vertices from cut
 	remove_vertices_from_cut(forget_vert, cut, cut_size);
 }
@@ -724,13 +706,11 @@ void forget_vertices(VP& forget_data, V& cut, I& cut_size, const VV& graph, cons
 // Vertices are only forgotten when no right neighbors
 // Implication: No vertex is forgotten and reintroduced.
 I run_solver(const VV& graph, const V& arrangement, const V& index, const VP& neighbor_range,
-		const PP& parameters, VV& cut_sol_masks, VV& sol_back_points, VV& cut_history, I upper_bound)
+		const PP& parameters, VM& cut_sol_masks, VM& sol_back_points, VV& cut_history, I upper_bound)
 {
 	I n = graph.size();
 	map<I, I> sol[2];
 	sol[1][0] = 0;
-
-	I sol_size[2] = {0, 1};
 	V cut(graph.size());
 	I cut_size = 0;
 
@@ -739,8 +719,8 @@ I run_solver(const VV& graph, const V& arrangement, const V& index, const VP& ne
 	I other_par = 1;
 
 #ifdef __DEBUG
-	cout << "Running solver for k = " << upper_bound << endl;
 	cout << "*******************************************************" << endl;
+	cout << "Running solver for k = " << upper_bound << endl;
 #endif
 	
 	for(I ind = 0; ind < n; ind++) // arrangement index
@@ -771,10 +751,12 @@ I run_solver(const VV& graph, const V& arrangement, const V& index, const VP& ne
 		{
 			debug("Calling forget.");
 			forget_vertices(forget_vert, cut, cut_size, graph, index, neighbor_range,
-				sol[curr_par], sol_size[curr_par], sol[other_par], sol_size[other_par],
+				sol[curr_par], sol[other_par],
 				cut_sol_masks, sol_back_points, cut_history, parameters, upper_bound);
 			if(sol[curr_par].size() == 0)
 			{
+				debug("no solutions left");
+				exit(-1);
 				return false;
 			}
 			print_current_dp(cut, cut_size, sol[curr_par]);
@@ -838,32 +820,32 @@ I run_solver(const VV& graph, const V& arrangement, const V& index, const VP& ne
 #ifdef __DEBUG
 	cout << endl << "Optimaml crossings: " << ans << endl << endl;
 #endif
-	return ans;
+	return true;
 }
 
-void print_solution_backwards(const VV& cut_sol_masks, const VV& sol_back_points, const VV& cut_history,
+void print_solution_backwards(const VM& cut_sol_masks, const VM& sol_back_points, const VV& cut_history,
 		const VV& graph, const V& index, const VP& neighbor_range, V& out)
 {
 #ifdef __DEBUG
-
-	cout << "Cut history: " << cut_history.size() << endl;;
-	for(const auto& v : cut_history)
+	cout << "Cut history: " << endl;
+	I timestamp = cut_history.size();
+	for(I i = 0; i < timestamp; i++)
 	{
-		cout << v << endl;
+		cout << "Cut: " << cut_history[i] << endl;
+		for(const auto& it : cut_sol_masks[i])
+		{
+			cout << "[" << get_set_from_mask(cut_history[i], it.second, cut_history[i].size()) << "], ";
+		}
+		cout << endl;
 	}
-	cout << endl;
-	cout << "Solutions masks: " << cut_sol_masks.size() << endl;
-	for(const auto& v : cut_sol_masks)
-	{
-		cout << v << endl;
-	}
-	cout << endl;
 #endif
 
 	I n = cut_sol_masks.size();
 	for(long long int  i = n-1, mask = 0; i >= 0; i--)
 	{
-		I sol = cut_sol_masks[i][mask];
+		auto mask_it = cut_sol_masks[i].find(mask);
+		assert(mask_it != cut_sol_masks[i].end());
+		I sol = mask_it->second;
 
 		V vertices = get_set_from_mask(cut_history[i], sol, cut_history[i].size());
 		compute_best_permutation(vertices, vertices.size(), graph, index, neighbor_range,true);
@@ -878,7 +860,9 @@ void print_solution_backwards(const VV& cut_sol_masks, const VV& sol_back_points
 		#endif
 
 		copy(ordered_vertices.rbegin(), ordered_vertices.rend(), back_inserter(out));
-		mask = sol_back_points[i][mask];
+		auto back_it = sol_back_points[i].find(mask);
+		assert(back_it != sol_back_points[i].end());
+		mask = back_it->second;
 	}
 	reverse(out.begin(), out.end());
 }
@@ -959,13 +943,21 @@ VV graph;
 	cout << "Arrangement: " << arrangement << endl;
 	cout << "Index: " << index << endl;
 	cout << "Neighbor range: " << neighbor_range << endl << endl << endl;
+
+	cout << "Sorted by introduce order: " << intro_order << endl;
+	cout << "Suffix bounds " << suffix_lower_bound << endl;
 #endif
 
-	VV cut_sol_masks, sol_back_pointer, cut_history;
+	VM cut_sol_masks, sol_back_pointer;
+	VV cut_history;
 	I ub = suffix_lower_bound[0];
 	while(!run_solver(graph, arrangement, index, neighbor_range, parameters, cut_sol_masks, sol_back_pointer, cut_history, ub))
 	{
 		ub++;
+		if(ub == 2)
+		{
+			break;
+		}
 	}
 	
 	V out_arr;
