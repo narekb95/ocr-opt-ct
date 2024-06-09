@@ -45,6 +45,7 @@ void debug(const string& s)
 	cout << s << endl;
 #endif
 }
+
 void d_assert(bool b)
 {
 #ifdef __DEBUG
@@ -66,6 +67,148 @@ void split_line(const string& str, VS& line)
 			i = j;
 		}
 	}while(j <= s);
+}
+
+I two_masks_crossings(I prev_mask, I suffix_mask, const V& cut, const I& cut_size, const VV& graph, const V& index)
+{
+	V prev_vertices = get_set_from_mask(cut, prev_mask, cut_size);
+	V suffix_vertices = get_set_from_mask(cut, suffix_mask, cut_size);
+	I crossings = 0;
+	for(const auto& u : prev_vertices)
+	{
+		for(const auto& v : suffix_vertices)
+		{
+			crossings += count_crossings(u, v, graph, index);
+		}
+	}
+	return crossings;
+}
+
+inline void print_current_dp(const V& cut, const I& cut_size, const map<I,I>& sol){
+#ifdef __DEBUG
+	cout << "Solutions:" << endl;
+	for(const auto& it : sol)
+	{
+		cout << "[" << get_set_from_mask(cut, it.first, cut_size) <<"]: " << it.second << endl;
+	}
+	cout << endl << endl;
+#endif
+}
+
+void err(const string& err)
+{
+#ifdef __DEBUG
+cout << "Error " << err << endl;
+#endif
+exit(-1);
+}
+
+I count_masks(I size)
+{
+	if(size > 63)
+	{
+		err("Too many vertices in cut");
+	}
+	return 1LL<<size;
+}
+
+bool is_fixed_partition(const I& v, const PP& parameters)
+{
+	return v < parameters.first.first;
+}
+
+V get_set_from_mask(const V& cut, const I& mask, I end, I start = 0)
+{
+	V out;
+	for(I i = start; i < end; i++)
+	{
+		if(mask & (1LL<<i))
+		{
+			out.push_back(cut[i]);
+		}
+	}
+	return out;
+}
+
+//assumes vertices have the same relative order in cut
+void remove_vertices_from_cut(const V& vertices, V& cut, I& cut_size, V& cut_mask)
+{
+	I new_cut_ind = 0;
+	I forget_ind = 0;
+	for(I old_ind = 0; old_ind < cut_size; old_ind++)
+	{
+		I w = cut[old_ind];
+		if(w == vertices[forget_ind])
+		{
+			forget_ind++;
+			continue;
+		}
+		cut[new_cut_ind++] = w;
+	}
+	cut_size =  new_cut_ind;
+	for(const auto& v : vertices)
+	{
+		assert(cut_mask[v] == 1);
+		cut_mask[v] = 0;
+	}
+}
+
+I remove_bits_from_mask(I mask, I remove, I n_bits)
+{
+	I out_mask = 0;
+	for(I i = 0, out_ind = 0; i < n_bits; i++)
+	{
+		if((1LL<<i) & remove)
+		{
+		    assert((1LL<<i) & mask);
+			continue;
+		}
+		if((1LL<<i) & mask)
+		{
+			out_mask |= (1LL<<out_ind);
+		}
+		out_ind++;
+	}
+	return out_mask;
+}
+
+// Returns cuv and cvu.
+// cvu is number of pairs i, j in permanent such that i < j, i neighbor of u and j neighbor of v.
+// i.e. c(u,v) is the number of crossings of (v, u)
+I count_crossings(I u, I v, const VV& graph, const V& index)
+{
+	static map<P,I> crossings;
+	if(crossings.find({u,v}) == crossings.end())
+	{
+		const V& a1 = graph[u];
+		const V& a2 = graph[v];
+		I n1 = a1.size();
+		I n2 = a2.size();
+		I common = 0;
+		I cuv = 0;
+		I cvu = 0;
+		for(I i = 0, j = 0; i < n1; i++)
+		{
+			while(j < n2 && index[a2[j]] < index[a1[i]])
+			{
+				j++;
+			}		
+			cvu += j;
+			cuv += (n2 - j); // assume first not equal
+			if(j < n2 && index[a2[j]] == index[a1[i]]) //subtract one if equal
+			{
+				common++;
+				cuv--;
+			}
+		}
+		assert(cuv + cvu + common == n1 * n2);
+		crossings[{u, v}] = cvu;
+		crossings[{v,u}] = cuv;
+// #ifdef __DEBUG
+// 		cout << "\n<>~~<>~~<> Count crossings: " << u << ", " << v << ": (" << cuv << ", " << cvu << "| " << crossings[P(u,v)] << ", " << crossings[P(v,u)] << ", " << common <<")"<< endl;
+// #endif
+	}
+	return crossings[{u,v}];
 }
 
 // Arrangement: is the linear arrangement as given in input
@@ -129,94 +272,151 @@ PP read_input(V& arrangement, VV& graph, istream& in, bool with_arrangement = tr
 	return PP(P(n1, n2), P(m, ctw));
 }
 
-
-
-void err(const string& err)
+void remove_isolated_vertices(VV& graph, V& arrangement, V& old_ids, V& solution, PP& parameters)
 {
-#ifdef __DEBUG
-cout << "Error " << err << endl;
-#endif
-exit(-1);
-}
+	I& n1 = parameters.first.first;
+	I& n2 = parameters.first.second;
+	I n = n1 + n2;
+	V removed(n, 0);
+	V new_ids(n);
+	old_ids.clear();
+	I count_removed = 0;
 
-I count_masks(I size)
-{
-	if(size > 63)
+	VV newgraph;
+	for(I i = 0; i < n; i++)
 	{
-		err("Too many vertices in cut");
-	}
-	return 1LL<<size;
-}
-
-bool is_fixed_partition(const I& v, const PP& parameters)
-{
-	return v < parameters.first.first;
-}
-
-V get_set_from_mask(const V& cut, const I& mask, I end, I start = 0)
-{
-	V out;
-	for(I i = start; i < end; i++)
-	{
-		if(mask & (1LL<<i))
+		if(graph[i].empty())
 		{
-			out.push_back(cut[i]);
-		}
-	}
-	return out;
-}
-
-inline void print_current_dp(const V& cut, const I& cut_size, const V& sol){
-#ifdef __DEBUG
-	cout << "Solutions:" << endl;
-	for(I mask = 0; mask < count_masks(cut_size); mask++)
-	{
-		cout << "[" << get_set_from_mask(cut, mask, cut_size) <<"]: " << sol[mask] << endl;
-	}
-	cout << endl << endl;
-#endif
-}
-
-// Returns cuv and cvu.
-// cvu is number of pairs i, j in permanent such that i < j, i neighbor of u and j neighbor of v.
-// i.e. c(u,v) is the number of crossings of (v, u)
-I count_crossings(I u, I v, const VV& graph, const V& index)
-{
-	static map<P,I> crossings;
-	if(crossings.find({u,v}) == crossings.end())
-	{
-		const V& a1 = graph[u];
-		const V& a2 = graph[v];
-		I n1 = a1.size();
-		I n2 = a2.size();
-		I common = 0;
-		I cuv = 0;
-		I cvu = 0;
-		for(I i = 0, j = 0; i < n1; i++)
-		{
-			while(j < n2 && index[a2[j]] < index[a1[i]])
+			if(i >= n1)
 			{
-				j++;
-			}		
-			cvu += j;
-			cuv += (n2 - j); // assume first not equal
-			if(j < n2 && index[a2[j]] == index[a1[i]]) //subtract one if equal
-			{
-				common++;
-				cuv--;
+				solution.push_back(i);
 			}
+			removed[i] = 1;
+			count_removed++;
 		}
-		assert(cuv + cvu + common == n1 * n2);
-		crossings[{u, v}] = cvu;
-		crossings[{v,u}] = cuv;
-// #ifdef __DEBUG
-// 		cout << "\n<>~~<>~~<> Count crossings: " << u << ", " << v << ": (" << cuv << ", " << cvu << "| " << crossings[P(u,v)] << ", " << crossings[P(v,u)] << ", " << common <<")"<< endl;
-// #endif
+		else
+		{
+			new_ids[i] = newgraph.size();
+			old_ids.push_back(i);
+			newgraph.push_back(move(graph[i]));
+		}
 	}
-	return crossings[{u,v}];
+	graph = move(newgraph);
+
+	// update data
+	for(auto &v : graph)
+	{
+		for(auto &x : v)
+		{
+			x = new_ids[x];
+		}
+	}
+
+	V new_arrangement;
+	for(auto x : arrangement)
+	{
+		if(!removed[x])
+		{
+			new_arrangement.push_back(new_ids[x]);
+		}
+	}
+	arrangement = move(new_arrangement);
+
+	assert(count_removed + graph.size() == n);
+	if(n1 > 0)
+	{
+		I last_fixed = n1 - 1;
+		while(last_fixed > 0 && removed[last_fixed])
+		{
+			last_fixed--;
+		}
+		if(last_fixed == 0 && removed[0])
+		{
+			n1 = 0;
+		}
+		else
+		{
+			n1 = new_ids[last_fixed] + 1;
+		}
+	}
+	n = graph.size();
+	n2 = n - n1;
 }
 
-V perm_DP;
+map<P, I> committed;
+// returns smalled if commited, or inf otherwise
+I committed_order(I u, I v, const VV& graph, const I& arrangement, const V& index, const VP& range)
+{
+	if(u > v)
+	{
+		swap(u, v);
+	}
+	const auto& it = committed.find(P{u, v});
+	if(it != committed.end())
+	{
+		cout << "found committed" << endl;
+		return it->second;
+	}
+	const P& r_u = range[u];
+	const P& r_v = range[v];
+	
+	auto smaller = [&](const P& x, const P& y){
+		if()
+	};
+
+}
+
+void compute_index_and_sort(const V& arrangement, V& index, VV& graph, VP& neighbor_range)
+{
+	I n = arrangement.size();
+	index.resize(n);
+	for(I i = 0; i < n; i++)
+	{
+		index[arrangement[i]] = i;
+	}
+	for(auto& v : graph)
+	{
+		sort(v.begin(), v.end(), [&](const I& x, const I& y){
+			return index[x] < index[y];
+		});
+	}
+	neighbor_range.resize(n);
+	transform(graph.begin(), graph.end(), neighbor_range.begin(), [&](const V& v){
+		return P(index[v.front()], index[v.back()]);
+	});
+}
+
+V suffix_lower_bound;
+void compute_lower_bounds(const VP& neighbor_range, const PP& parameters, const VV& graph, const V& index){
+	I n1 = parameters.first.first;
+	I n = parameters.first.second;
+	V intro_order(n);
+	iota(intro_order.begin(), intro_order.end(), n1);
+	sort(intro_order.begin(), intro_order.end(), [&](const I& x, const I& y){
+		return neighbor_range[x].first < neighbor_range[y].first;
+	});
+	
+	suffix_lower_bound.assign(n, 0);
+	for(long long int i = n-1; i >= 0; i--)
+	{
+		I u = intro_order[i];
+		suffix_lower_bound[i] = suffix_lower_bound[i+1];
+		for(I j = i + 1; j < n; j++)
+		{
+			I v = intro_order[j];
+			// All vertices afterwards have possibly smaller index than v but not that its introduce index
+			if(neighbor_range[u].second < neighbor_range[v].first)
+			{
+				break;
+			}
+			// u is neighbor of v
+			suffix_lower_bound[u] += min(count_crossings(u, v, graph, index), count_crossings(v, u, graph, index));
+		}
+	}
+}
+
+// [TODO]
+map<I,I> perm_DP;
 V permutation_backtrack;
 V permutation_last_vertex;
 void compute_best_permutation(const V& permutation_vertices, const I& end, const VV& graph, const V& index, bool with_backtrack = false)
@@ -287,63 +487,6 @@ void compute_best_permutation(const V& permutation_vertices, const I& end, const
 	}
 }
 
-//assumes vertices have the same relative order in cut
-void remove_vertices_from_cut(const V& vertices, V& cut, I& cut_size, V& cut_mask)
-{
-	I new_cut_ind = 0;
-	I forget_ind = 0;
-	for(I old_ind = 0; old_ind < cut_size; old_ind++)
-	{
-		I w = cut[old_ind];
-		if(w == vertices[forget_ind])
-		{
-			forget_ind++;
-			continue;
-		}
-		cut[new_cut_ind++] = w;
-	}
-	cut_size =  new_cut_ind;
-	for(const auto& v : vertices)
-	{
-		assert(cut_mask[v] == 1);
-		cut_mask[v] = 0;
-	}
-}
-
-I two_masks_crossings(I prev_mask, I suffix_mask, const V& cut, const I& cut_size, const VV& graph, const V& index)
-{
-	V prev_vertices = get_set_from_mask(cut, prev_mask, cut_size);
-	V suffix_vertices = get_set_from_mask(cut, suffix_mask, cut_size);
-	I crossings = 0;
-	for(const auto& u : prev_vertices)
-	{
-		for(const auto& v : suffix_vertices)
-		{
-			crossings += count_crossings(u, v, graph, index);
-		}
-	}
-	return crossings;
-}
-
-I remove_bits_from_mask(I mask, I remove, I n_bits)
-{
-	I out_mask = 0;
-	for(I i = 0, out_ind = 0; i < n_bits; i++)
-	{
-		if((1LL<<i) & remove)
-		{
-		    assert((1LL<<i) & mask);
-			continue;
-		}
-		if((1LL<<i) & mask)
-		{
-			out_mask |= (1LL<<out_ind);
-		}
-		out_ind++;
-	}
-	return out_mask;
-}
-
 // Forget vertex and update cut and cut_mask.
 // For each subset, try subset in mask and find best permutation over rest
 // Since dp[subset] is local over vertices in the subset, can reuse values.
@@ -352,7 +495,7 @@ I remove_bits_from_mask(I mask, I remove, I n_bits)
 // sol is indexed by after-forgetting
 // by cut_history and sol_vertices values from current cut (index corresp to after-forgetting but value to before)
 void forget_vertices(VP& forget_data, V& cut, V& cut_mask, I& cut_size, const VV& graph, const V& index,
-		V& curr_sol, I& curr_size, const V& last_sol, const I& last_size,
+		map<I, I>& curr_sol, I& curr_size, const map<I, I>& last_sol, const I& last_size,
 		VV& cut_sol_masks, VV& sol_back_pointer, VV& cut_history)
 {
 	
@@ -383,16 +526,15 @@ void forget_vertices(VP& forget_data, V& cut, V& cut_mask, I& cut_size, const VV
 	I total_masks_n = count_masks(cut_size);
 	curr_size = count_masks(new_size);
 	
-	if(curr_sol.size() < curr_size)
-	{
-		curr_sol.resize(curr_size);
-	}
-	fill(curr_sol.begin(), curr_sol.begin()+curr_size, INF); // new mask size
+
+	curr_sol.clear();
 	cut_sol_masks.push_back(V(curr_size));
 	sol_back_pointer.push_back(V(curr_size));
 
 	compute_best_permutation(cut, cut_size, graph, index);
 
+	//[TODO]
+	// change iteration to only iterate over perv masks in map and only suffices that are valid and contain forget vertices
 	I non_forget_bits = (total_masks_n - 1) ^ cut_forget_mask;
 	for(I non_forget_mask = non_forget_bits;; non_forget_mask = (non_forget_mask - 1) & non_forget_bits)
 	{
@@ -401,12 +543,19 @@ void forget_vertices(VP& forget_data, V& cut, V& cut_mask, I& cut_size, const VV
 		for(I prev_mask = mask;; prev_mask = (prev_mask-1)&mask) // mask that was already in solution
 		{
 			I suffix_mask = mask ^ prev_mask;
-			if(prev_mask >= last_size || last_sol[prev_mask] == INF)
+			const auto& last_it = last_sol.find(prev_mask);
+			if(last_it == last_sol.end())
 			{
 				continue;
 			}
-			I prev_cost = last_sol[prev_mask];
-			I suffix_cost = perm_DP[suffix_mask];
+			I prev_cost = last_it->second;
+			
+			const auto& perm_it = perm_DP.find(suffix_mask);
+			if(perm_it == perm_DP.end())
+			{
+				continue;
+			}
+			I suffix_cost = perm_it->second;
 			I prev_to_suffix_cost =  two_masks_crossings(prev_mask, suffix_mask, cut, cut_size, graph, index);
 			I forget_to_non_mask = two_masks_crossings(cut_forget_mask, anti_mask, cut, cut_size, graph, index);
 			// left is non_forget to non_mask but will be added when either forgotten 
@@ -454,7 +603,9 @@ I run_solver(const VV& graph, const V& arrangement, const V& index, const VP& ne
 		const PP& parameters, VV& cut_sol_masks, VV& sol_back_points, VV& cut_history)
 {
 	I n = graph.size();
-	V sol[2] = {V(), V(1, 0)};
+	map<I, I> sol[2];
+	sol[1][0] = 0;
+
 	I sol_size[2] = {0, 1};
 	V cut(graph.size());
 	I cut_size = 0;
@@ -552,97 +703,6 @@ I run_solver(const VV& graph, const V& arrangement, const V& index, const VP& ne
 	cout << endl << "Optimaml crossings: " << ans << endl << endl;
 #endif
 	return ans;
-}
-
-void remove_isolated_vertices(VV& graph, V& arrangement, V& old_ids, V& solution, PP& parameters)
-{
-	I& n1 = parameters.first.first;
-	I& n2 = parameters.first.second;
-	I n = n1 + n2;
-	V removed(n, 0);
-	V new_ids(n);
-	old_ids.clear();
-	I count_removed = 0;
-
-	VV newgraph;
-	for(I i = 0; i < n; i++)
-	{
-		if(graph[i].empty())
-		{
-			if(i >= n1)
-			{
-				solution.push_back(i);
-			}
-			removed[i] = 1;
-			count_removed++;
-		}
-		else
-		{
-			new_ids[i] = newgraph.size();
-			old_ids.push_back(i);
-			newgraph.push_back(move(graph[i]));
-		}
-	}
-	graph = move(newgraph);
-
-	// update data
-	for(auto &v : graph)
-	{
-		for(auto &x : v)
-		{
-			x = new_ids[x];
-		}
-	}
-
-	V new_arrangement;
-	for(auto x : arrangement)
-	{
-		if(!removed[x])
-		{
-			new_arrangement.push_back(new_ids[x]);
-		}
-	}
-	arrangement = move(new_arrangement);
-
-	assert(count_removed + graph.size() == n);
-	if(n1 > 0)
-	{
-		I last_fixed = n1 - 1;
-		while(last_fixed > 0 && removed[last_fixed])
-		{
-			last_fixed--;
-		}
-		if(last_fixed == 0 && removed[0])
-		{
-			n1 = 0;
-		}
-		else
-		{
-			n1 = new_ids[last_fixed] + 1;
-		}
-	}
-	n = graph.size();
-	n2 = n - n1;
-}
-
-void compute_index_and_sort(const V& arrangement, V& index, VV& graph, VP& neighbor_range)
-{
-	I n = arrangement.size();
-	index.resize(n);
-	for(I i = 0; i < n; i++)
-	{
-		index[arrangement[i]] = i;
-	}
-	for(auto& v : graph)
-	{
-		sort(v.begin(), v.end(), [&](const I& x, const I& y){
-			return index[x] < index[y];
-		});
-	}
-	neighbor_range.resize(n);
-	transform(graph.begin(), graph.end(), neighbor_range.begin(), [&](const V& v){
-		return P(index[v.front()], index[v.back()]);
-	});
 }
 
 void print_solution_backwards(const VV& cut_sol_masks, const VV& sol_back_points, const VV& cut_history,
@@ -743,9 +803,12 @@ VV graph;
 	V sol_isolated_vertices;
 	V old_ids;
 	remove_isolated_vertices(graph, arrangement, old_ids, sol_isolated_vertices, parameters);
+
 	V index;
 	VP neighbor_range;
 	compute_index_and_sort(arrangement, index, graph, neighbor_range);
+
+	compute_lower_bounds(neighbor_range, parameters, graph, index);
 
 #ifdef __DEBUG
 	cout << "Solution: " << sol_isolated_vertices << endl;
