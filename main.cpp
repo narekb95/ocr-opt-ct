@@ -433,6 +433,9 @@ I compute_lb_set_to_unintro(const V& cut, const I& cut_size, const VV& graph, co
 			}
 		}
 	}
+#ifdef __DEBUG
+	cout << "LB cut to right: [" << cut << "]: " << ans << endl;
+#endif
 	return ans;
 }
 
