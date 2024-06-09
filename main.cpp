@@ -812,7 +812,6 @@ I run_solver(const VV& graph, const V& arrangement, const V& index, const VP& ne
 #endif
 	}
 	assert(cut_size == 0);
-	assert(cut_size < parameters.second.second + 1);
 
 	I ans = sol[other_par][0]; // empty mask
 #ifdef __DEBUG
