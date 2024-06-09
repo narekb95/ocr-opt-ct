@@ -14,8 +14,7 @@ def run_instance(directory, instance):
     arrangement_file = f'{directory}/arrg/{instance}_arrg.gr'
     output_file = f'{directory}/arrg/{instance}.out'
     
-    output = open(output_file, 'w')
-    mysol = subprocess.run(['./release', arrangement_file], stdout=output)
+    subprocess.run(['./fre', arrangement_file, output_file])
 
 
     sol_verr_arguments = ['pace2024verifier', input_file, sol_file, '--only-crossings']
