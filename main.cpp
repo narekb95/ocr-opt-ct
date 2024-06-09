@@ -763,10 +763,7 @@ VV graph;
 #endif
 
 	VV cut_sol_masks, sol_back_pointer, cut_history;
-	// P bad_edge = {0,0};
 	run_solver(graph, arrangement, index, neighbor_range, parameters, cut_sol_masks, sol_back_pointer, cut_history);
-	// cout << "Bad edge (old): " << old_ids[bad_edge.first] + 1 << " " << old_ids[bad_edge.second] + 1 << endl;
-	// cout << "Bad edge (new):" << bad_edge.first + 1 << " " << bad_edge.second << endl;
 	V out_arr;
 	print_solution_backwards(cut_sol_masks, sol_back_pointer, cut_history, graph, index, out_arr);
 	for(auto& v : out_arr)
