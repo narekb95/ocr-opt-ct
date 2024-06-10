@@ -412,18 +412,23 @@ void compute_lower_bounds(const VP& neighbor_range, const PP& parameters, const 
 	}
 }
 
-I compute_lb_set_to_unintro(const V& cut, const I& cut_size, const VV& graph, const V& index)
+I compute_lb_set_to_unintro(const V& cut, const I& cut_size, const VV& graph, const V& index, const VP& neighbor_range, const PP& parameters)
 {
 	I ans = 0;
-	for(I i = first_unintroduced; i < cut_size; i++)
+	for(I i = 0; i < cut_size; i++)
 	{
 		I v = cut[i];
-		for(auto w : graph[v])
+		assert(introduced[v]);
+		// if <= min => < neighborrange.first for all following
+		for(I j = first_unintroduced; j < parameters.first.second; j++)
 		{
-			if(!introduced[w])
+			I w = intro_order[j];
+			if(neighbor_range[v].second <= min(index[w], neighbor_range[w].first))
 			{
-				ans += min(count_crossings(v, w, graph, index), count_crossings(w, v, graph, index));
+				break;
 			}
+			assert(!introduced[w]);
+			ans += min(count_crossings(v, w, graph, index), count_crossings(w, v, graph, index));
 		}
 	}
 #ifdef __DEBUG
@@ -594,7 +599,7 @@ void compute_best_permutation(const V& permutation_vertices, const I& end,
 void forget_vertices(VP& forget_data, V& cut, I& cut_size, const VV& graph, const V& index, const VP& neighbor_range,
 		map<I, I>& curr_sol, const map<I, I>& last_sol, VM& cut_sol_masks, VM& sol_back_pointer, VV& cut_history, const PP& parameters, I upper_bound)
 {
-	I post_cut_lower_bound = first_unintroduced <= parameters.first.first ? suffix_lower_bound[first_unintroduced] : 0;
+	I post_cut_lower_bound = first_unintroduced < parameters.first.second ? suffix_lower_bound[first_unintroduced] : 0;
 	
 	cut_history.push_back(V(cut_size));
 	copy(cut.begin(), cut.begin()+cut_size, cut_history.back().begin());
@@ -644,7 +649,7 @@ void forget_vertices(VP& forget_data, V& cut, I& cut_size, const VV& graph, cons
 		I left_bits = total_bits ^ prev_mask;
 		assert((total_bits & prev_mask) == prev_mask);
 #ifdef __DEBUG
-			cout << "-----" << endl;
+			cout << "-------" << endl;
 			cout << "Rec. sol set: " << get_set_from_mask(cut, prev_mask, cut_size) << endl;
 			cout << "Rest of cut: " << get_set_from_mask(cut, left_bits, cut_size) << endl;
 #endif
@@ -653,7 +658,7 @@ void forget_vertices(VP& forget_data, V& cut, I& cut_size, const VV& graph, cons
 		{
 			I suffix_mask = valid_masks[mask_ind];
 #ifdef __DEBUG
-			cout << "Suffix mask: " << get_set_from_mask(cut, suffix_mask, cut_size) << endl;
+			cout << "***" << endl << "Suffix mask: " << get_set_from_mask(cut, suffix_mask, cut_size) << endl;
 #endif
 			I mask = prev_mask | suffix_mask;
 			assert((total_bits & mask) == mask);
@@ -673,13 +678,14 @@ void forget_vertices(VP& forget_data, V& cut, I& cut_size, const VV& graph, cons
 			I cost = prev_cost + suffix_cost + prev_to_suffix_cost + forget_to_non_mask;
 			I output_mask = remove_bits_from_mask(mask, cut_forget_mask, cut_size);
 
-			I lb_no_forget_to_rest = compute_lb_set_to_unintro(cut, cut_size, graph, index);
+			I lb_no_forget_to_rest = compute_lb_set_to_unintro(cut, cut_size, graph, index, neighbor_range, parameters);
 #ifdef __DEBUG
 			cout << "Mask set: " << get_set_from_mask(cut, mask, cut_size) << endl;
 			cout << "DP cost: " << prev_cost << endl;
 			cout << "Permutation cost: " << suffix_cost << endl;
 			cout <<  "Previous to suffix: " << prev_to_suffix_cost << endl;
 			cout << "Forget to non-mask: " << forget_to_non_mask << endl;
+			cout << "Total cost for [" << get_set_from_mask(cut, mask, cut_size) << "]: " << cost << endl;
 #endif
 			
 			if(cost + post_cut_lower_bound + lb_no_forget_to_rest > upper_bound) // [TODO] + minimum cost in antimask from from cut to right of cut?

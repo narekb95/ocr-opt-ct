@@ -1,6 +1,7 @@
 #!/bin/python3
 import os
 import subprocess
+from time import time
 
 outdir = 'output/'
 def endswith(s, p):
@@ -13,15 +14,15 @@ def get_all_instances(directory):
 def run_instance(directory, noar_dir, instance):
     input_file = f'{directory}{instance}.gr'
     sol_file = f'{outdir}{instance}.sol'
-    output = open(sol_file, 'w')
+    start = time()
     subprocess.run(['./fre', input_file, sol_file])
-    output.close()
+    ellapsed_time = time() - start
 
     noar_file = f'{noar_dir}{instance}.gr'
     sol_verr_arguments = ['pace2024verifier', noar_file, sol_file, '--only-crossings']
     sol_verrifier = subprocess.run(sol_verr_arguments, stdout=subprocess.PIPE)
     sol_output = sol_verrifier.stdout.decode('utf8')[:-1]
-    print(f'{instance:3}:\t{sol_output:2}')
+    print(f'{instance:3}:\t{sol_output:2}\ttime: {ellapsed_time:5.2f}s')
 
 
 dir = 'instances/public/'
